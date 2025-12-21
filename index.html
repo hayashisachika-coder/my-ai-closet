@@ -300,7 +300,7 @@
     } catch (err) { loading.style.display = "none"; btn.disabled = false; alert("エラー: " + err); }
   }
 
-  // ★重ね着対応版: キャンバス描画ロジック
+  // ★キャンバス描画メイン関数
   async function renderCollage(proposal, container) {
     const card = document.createElement('div'); card.className = "proposal-card";
     const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 1000; canvas.className = "outfit-canvas";
@@ -308,35 +308,32 @@
 
     const imagePromises = proposal.outfitItems.map(item => new Promise(resolve => {
       const img = new Image(); img.crossOrigin = "Anonymous";
-      img.onload = () => resolve({ img, item }); // item情報ごと渡す
+      img.onload = () => resolve({ img, item });
       img.onerror = () => resolve(null); img.src = item.url;
     }));
     
     const loadedObjects = await Promise.all(imagePromises);
     
-    // --- カテゴリの整理（重ね着ロジック） ---
+    // カテゴリ分け（重ね着ロジック）
     const itemsMap = {};
-    
     loadedObjects.forEach(obj => {
       if (!obj) return;
       const { img, item } = obj;
       const main = item.mainCategory;
       const sub = item.subCategory || "";
 
-      // ★ここがミソ！「トップス」の中でも「カーディガン/ベスト」は別枠にする
       if (main === "トップス" && (sub.includes("カーディガン") || sub.includes("ベスト") || sub.includes("ジレ"))) {
         itemsMap["羽織り"] = img; 
       } else if (main === "トップス") {
         itemsMap["トップス"] = img;
       } else {
-        // 通常のカテゴリ
         itemsMap[main] = img;
       }
     });
 
-    // 描画順序: 下にあるものから描く
-    // ボトムス -> ワンピ -> トップス -> 【羽織り(カーデ)】 -> アウター -> 靴 -> バッグ
-    const drawOrder = ["ボトムス", "ワンピース", "トップス", "羽織り", "アウター", "シューズ", "バッグ", "アクセサリー"];
+    // ★修正ポイント: 描画順序を変更
+    // 「アウター」「羽織り」を先に描くことで、トップスの「下」に表示させる
+    const drawOrder = ["アウター", "羽織り", "ボトムス", "ワンピース", "トップス", "シューズ", "バッグ", "アクセサリー"];
     
     drawOrder.forEach(cat => { 
       if (itemsMap[cat]) drawItemOnCanvas(ctx, itemsMap[cat], cat); 
@@ -347,69 +344,57 @@
     card.appendChild(canvas); card.appendChild(infoDiv); container.appendChild(card);
   }
 
-  // ========== 修正版：配置座標の計算 ==========
-// ・隙間をなくすため、ボトムスを上に移動
-// ・重ね着が見えるよう、羽織り・アウターを斜めにずらす
-// =========================================
-function drawItemOnCanvas(ctx, img, category) {
-  const cw = 800; // キャンバス幅
-  const aspect = img.width / img.height; // 画像の縦横比
-  let x, y, w, h;
+// ★修正版: 配置座標の計算
+  // ・羽織りものをトップスの背面に配置し、大きく斜めにずらす
+  // =========================================
+  function drawItemOnCanvas(ctx, img, category) {
+    const cw = 800; const aspect = img.width / img.height;
+    let x, y, w, h;
 
-  // --- メインの服 ---
-  if (category === "トップス") {
-    // 基準となる位置
-    w = 360; h = w / aspect;
-    x = (cw - w) / 2; // 中央
-    y = 80;
-  }
-  else if (category === "ボトムス") {
-    // ★修正: 位置を上げて隙間をなくす
-    w = 340; h = w / aspect;
-    x = (cw - w) / 2;
-    // トップスの開始位置(80) + トップスの大まかな丈(約250~300) - 重なり分
-    y = 330; 
-  }
-  else if (category === "ワンピース") {
-    w = 400; h = w / aspect;
-    x = (cw - w) / 2;
-    y = 100;
-  }
-  
-  // --- 羽織り・アウター（ずらして配置） ---
-  else if (category === "羽織り") {
-    // ★修正: 右斜め上にずらす
-    w = 370; h = w / aspect;
-    x = (cw - w) / 2 + 60; // 右へ60px
-    y = 60;                // 上へ20px
-  }
-  else if (category === "アウター") {
-    // ★修正: 左斜め上に大きくずらす（羽織りと逆サイドに）
-    w = 420; h = w / aspect;
-    x = (cw - w) / 2 - 80; // 左へ80px
-    y = 40;                // 上へ40px
-  }
-  
-  // --- 小物 ---
-  else if (category === "シューズ") {
-    w = 220; h = w / aspect;
-    x = (cw - w) / 2 + 80;
-    y = 750; // ボトムスの下
-  }
-  else if (category === "バッグ") {
-    w = 250; h = w / aspect;
-    x = 50; // 左側配置
-    y = 350;
-  }
-  else { // アクセサリー・その他
-    w = 150; h = w / aspect;
-    x = 600; // 右側配置
-    y = 150;
-  }
+    // --- メインの服 ---
+    if (category === "トップス") {
+      w = 360; h = w / aspect;
+      x = (cw - w) / 2; y = 80; // 中央配置
+    }
+    else if (category === "ボトムス") {
+      w = 340; h = w / aspect;
+      x = (cw - w) / 2; y = 330; // 隙間なく配置
+    }
+    else if (category === "ワンピース") {
+      w = 400; h = w / aspect;
+      x = (cw - w) / 2; y = 100;
+    }
+    
+    // --- 羽織り・アウター（トップスの背面＆大きくずらす） ---
+    else if (category === "羽織り") {
+      // ★修正: 右斜め後ろに大きくずらす
+      w = 380; h = w / aspect;
+      x = (cw - w) / 2 + 120; // 右へ大きく(120px)
+      y = 40;                 // 少し上へ
+    }
+    else if (category === "アウター") {
+      // ★修正: 左斜め後ろにさらに大きくずらす
+      w = 440; h = w / aspect;
+      x = (cw - w) / 2 - 150; // 左へ大きく(150px)
+      y = 20;                 // さらに上へ
+    }
+    
+    // --- 小物 ---
+    else if (category === "シューズ") {
+      w = 220; h = w / aspect;
+      x = (cw - w) / 2 + 80; y = 750;
+    }
+    else if (category === "バッグ") {
+      w = 250; h = w / aspect;
+      x = 50; y = 350;
+    }
+    else { // アクセサリー・その他
+      w = 150; h = w / aspect;
+      x = 600; y = 150;
+    }
 
-  // 描画実行
-  ctx.drawImage(img, x, y, w, h);
-}
+    ctx.drawImage(img, x, y, w, h);
+  }
   
   function updateBtn() {
     const checked = document.querySelectorAll('.grid input:checked');
