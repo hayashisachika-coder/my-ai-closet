@@ -344,56 +344,68 @@
     card.appendChild(canvas); card.appendChild(infoDiv); container.appendChild(card);
   }
 
-// ★修正版: 配置座標の計算
-  // ・羽織りものをトップスの背面に配置し、大きく斜めにずらす
+  // =========================================
+  // ★修正版: サイズ調整機能付きの描画関数
+  // （巨大化を防ぐため、縦横の最大サイズを指定して収める）
   // =========================================
   function drawItemOnCanvas(ctx, img, category) {
-    const cw = 800; const aspect = img.width / img.height;
-    let x, y, w, h;
+    const cw = 800; // キャンバス全体の幅
 
-    // --- メインの服 ---
+    // 1. カテゴリごとの「最大枠（ここまではみ出してOK）」を決める
+    // format: { maxW: 横幅上限, maxH: 高さ上限, xOffset: Xのズレ, yPos: Y位置 }
+    let setting = {};
+
     if (category === "トップス") {
-      w = 360; h = w / aspect;
-      x = (cw - w) / 2; y = 80; // 中央配置
+      setting = { maxW: 360, maxH: 380, xOffset: 0, yPos: 80 };
     }
     else if (category === "ボトムス") {
-      w = 340; h = w / aspect;
-      x = (cw - w) / 2; y = 330; // 隙間なく配置
+      // ★スカート巨大化防止：高さを制限し、Y位置を少し上げる
+      setting = { maxW: 300, maxH: 450, xOffset: 0, yPos: 320 };
     }
     else if (category === "ワンピース") {
-      w = 400; h = w / aspect;
-      x = (cw - w) / 2; y = 100;
+      setting = { maxW: 380, maxH: 600, xOffset: 0, yPos: 80 };
     }
-    
-    // --- 羽織り・アウター（トップスの背面＆大きくずらす） ---
     else if (category === "羽織り") {
-      // ★修正: 右斜め後ろに大きくずらす
-      w = 380; h = w / aspect;
-      x = (cw - w) / 2 + 120; // 右へ大きく(120px)
-      y = 40;                 // 少し上へ
+      setting = { maxW: 380, maxH: 450, xOffset: 140, yPos: 50 }; // 右奥へ
     }
     else if (category === "アウター") {
-      // ★修正: 左斜め後ろにさらに大きくずらす
-      w = 440; h = w / aspect;
-      x = (cw - w) / 2 - 150; // 左へ大きく(150px)
-      y = 20;                 // さらに上へ
+      setting = { maxW: 460, maxH: 600, xOffset: -120, yPos: 30 }; // 左奥へ
     }
-    
-    // --- 小物 ---
     else if (category === "シューズ") {
-      w = 220; h = w / aspect;
-      x = (cw - w) / 2 + 80; y = 750;
+      setting = { maxW: 200, maxH: 180, xOffset: 80, yPos: 780 };
     }
     else if (category === "バッグ") {
-      w = 250; h = w / aspect;
-      x = 50; y = 350;
+      setting = { maxW: 240, maxH: 240, xOffset: -300, yPos: 350 }; // 左端配置(座標計算変更のため)
     }
-    else { // アクセサリー・その他
-      w = 150; h = w / aspect;
-      x = 600; y = 150;
+    else { // その他
+      setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 };
     }
 
-    ctx.drawImage(img, x, y, w, h);
+    // 2. 枠の中に収まるサイズを計算する
+    const size = calculateFittedSize(img, setting.maxW, setting.maxH);
+    
+    // 3. 中央寄せのためのX座標計算
+    // (キャンバス中央) + (設定したズレ) - (画像幅の半分)
+    let x = (cw / 2) + setting.xOffset - (size.width / 2);
+    
+    // バッグなどは左端固定にしたいので特別扱い
+    if (category === "バッグ") {
+        x = 50; 
+    } else if (category === "その他" || category === "アクセサリー") {
+        x = 600;
+    }
+
+    // 4. 描画
+    ctx.drawImage(img, x, setting.yPos, size.width, size.height);
+  }
+
+  // ★便利関数: 画像の比率を保ったまま、指定した箱に収まるサイズを計算
+  function calculateFittedSize(img, maxWidth, maxHeight) {
+    const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+    return { 
+      width: img.width * ratio, 
+      height: img.height * ratio 
+    };
   }
   
   function updateBtn() {
