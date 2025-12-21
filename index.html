@@ -300,6 +300,7 @@
     } catch (err) { loading.style.display = "none"; btn.disabled = false; alert("エラー: " + err); }
   }
 
+  // ★重ね着対応版: キャンバス描画ロジック
   async function renderCollage(proposal, container) {
     const card = document.createElement('div'); card.className = "proposal-card";
     const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 1000; canvas.className = "outfit-canvas";
@@ -307,29 +308,77 @@
 
     const imagePromises = proposal.outfitItems.map(item => new Promise(resolve => {
       const img = new Image(); img.crossOrigin = "Anonymous";
-      img.onload = () => resolve({ img, cat: item.mainCategory });
+      img.onload = () => resolve({ img, item }); // item情報ごと渡す
       img.onerror = () => resolve(null); img.src = item.url;
     }));
-    const loadedImages = await Promise.all(imagePromises);
-    const itemsMap = {}; loadedImages.forEach(obj => { if(obj) itemsMap[obj.cat] = obj.img; });
-    const drawOrder = ["ボトムス", "ワンピース", "トップス", "アウター", "シューズ", "バッグ", "アクセサリー"];
-    drawOrder.forEach(cat => { if (itemsMap[cat]) drawItemOnCanvas(ctx, itemsMap[cat], cat); });
+    
+    const loadedObjects = await Promise.all(imagePromises);
+    
+    // --- カテゴリの整理（重ね着ロジック） ---
+    const itemsMap = {};
+    
+    loadedObjects.forEach(obj => {
+      if (!obj) return;
+      const { img, item } = obj;
+      const main = item.mainCategory;
+      const sub = item.subCategory || "";
+
+      // ★ここがミソ！「トップス」の中でも「カーディガン/ベスト」は別枠にする
+      if (main === "トップス" && (sub.includes("カーディガン") || sub.includes("ベスト") || sub.includes("ジレ"))) {
+        itemsMap["羽織り"] = img; 
+      } else if (main === "トップス") {
+        itemsMap["トップス"] = img;
+      } else {
+        // 通常のカテゴリ
+        itemsMap[main] = img;
+      }
+    });
+
+    // 描画順序: 下にあるものから描く
+    // ボトムス -> ワンピ -> トップス -> 【羽織り(カーデ)】 -> アウター -> 靴 -> バッグ
+    const drawOrder = ["ボトムス", "ワンピース", "トップス", "羽織り", "アウター", "シューズ", "バッグ", "アクセサリー"];
+    
+    drawOrder.forEach(cat => { 
+      if (itemsMap[cat]) drawItemOnCanvas(ctx, itemsMap[cat], cat); 
+    });
 
     const infoDiv = document.createElement('div'); infoDiv.className = "proposal-content";
     infoDiv.innerHTML = `<h4 class="proposal-title">${proposal.title}</h4><p class="proposal-desc">${proposal.description}</p>`;
     card.appendChild(canvas); card.appendChild(infoDiv); container.appendChild(card);
   }
 
+  // 配置座標の計算（羽織り用の位置を追加）
   function drawItemOnCanvas(ctx, img, category) {
     const cw = 800; const aspect = img.width / img.height;
     let x, y, w, h;
-    if (category === "トップス") { w = 360; h = w / aspect; x = (cw - w) / 2; y = 80; }
-    else if (category === "ボトムス") { w = 340; h = w / aspect; x = (cw - w) / 2; y = 380; }
-    else if (category === "ワンピース") { w = 400; h = w / aspect; x = (cw - w) / 2; y = 100; }
-    else if (category === "アウター") { w = 420; h = w / aspect; x = (cw - w) / 2; y = 60; }
-    else if (category === "シューズ") { w = 220; h = w / aspect; x = (cw - w) / 2 + 80; y = 750; }
-    else if (category === "バッグ") { w = 250; h = w / aspect; x = 50; y = 300; }
-    else { w = 150; h = w / aspect; x = 600; y = 100; }
+
+    if (category === "トップス") { 
+      w = 360; h = w / aspect; x = (cw - w) / 2; y = 80; 
+    }
+    else if (category === "羽織り") { 
+      // トップスより少し大きく、少し下にずらして重ねる
+      w = 380; h = w / aspect; x = (cw - w) / 2; y = 80; 
+    }
+    else if (category === "ボトムス") { 
+      w = 340; h = w / aspect; x = (cw - w) / 2; y = 380; 
+    }
+    else if (category === "ワンピース") { 
+      w = 400; h = w / aspect; x = (cw - w) / 2; y = 100; 
+    }
+    else if (category === "アウター") { 
+      // 一番外側なので大きく
+      w = 440; h = w / aspect; x = (cw - w) / 2; y = 50; 
+    }
+    else if (category === "シューズ") { 
+      w = 220; h = w / aspect; x = (cw - w) / 2 + 80; y = 750; 
+    }
+    else if (category === "バッグ") { 
+      w = 250; h = w / aspect; x = 50; y = 300; 
+    }
+    else { 
+      w = 150; h = w / aspect; x = 600; y = 100; 
+    }
+    
     ctx.drawImage(img, x, y, w, h);
   }
   
