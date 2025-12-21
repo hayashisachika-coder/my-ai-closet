@@ -455,7 +455,7 @@
       card.appendChild(canvas); card.appendChild(infoDiv); container.appendChild(card);
   }
 
-// ★修正版: サイズ微調整 ＆ 靴の底基準配置
+// ★修正版: 配置とサイズ調整（靴の底基準対応）
   function drawItemOnCanvas(ctx, img, category) {
     const cw = 800; 
     let setting = {};
@@ -468,24 +468,21 @@
     else if (category === "ボトムス") {
       setting = { maxW: 280, maxH: 450, xOffset: 0, yPos: 330 };
     }
-    // --- ワンピース (ジャンパースカート含む) ---
+    // --- ワンピース ---
     else if (category === "ワンピース") {
-      // ★修正: 横幅を小さく(380→320)して巨大化防止
       setting = { maxW: 320, maxH: 600, xOffset: 0, yPos: 100 };
     }
-    // --- 羽織り (ベスト・カーデ) ---
+    // --- 羽織り ---
     else if (category === "羽織り") {
-      // ★修正: 横幅を小さく(380→330)
       setting = { maxW: 330, maxH: 450, xOffset: 120, yPos: 40 }; 
     }
     // --- アウター ---
     else if (category === "アウター") {
       setting = { maxW: 420, maxH: 600, xOffset: -150, yPos: 20 };
     }
-    // --- シューズ ---
+    // --- シューズ (底基準) ---
     else if (category === "シューズ") {
-      // ★重要修正: 高さはたっぷり取るが、横幅は小さく(240→200)
-      // yPosは「地面の位置(底辺)」として使う
+      // yPosを地面(950)に設定
       setting = { maxW: 200, maxH: 600, xOffset: 80, yPos: 950 }; 
     }
     // --- バッグ ---
@@ -496,24 +493,29 @@
       setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 };
     }
 
-    // サイズ計算
+    // サイズ計算 (ここで calculateFittedSize を使います)
     const size = calculateFittedSize(img, setting.maxW, setting.maxH);
     
-    // X座標（横位置）の計算
+    // X座標
     let x = (cw / 2) + setting.xOffset - (size.width / 2);
     if (category === "バッグ") x = 50; 
     else if (category === "その他" || category === "アクセサリー") x = 600;
 
-    // Y座標（縦位置）の計算
+    // Y座標
     let y = setting.yPos;
 
-    // ★ここが最大の修正ポイント！
-    // シューズの場合だけ、「yPos = 地面」とみなして、そこから高さを引く
+    // ★靴だけは「地面から引き算」する
     if (category === "シューズ") {
       y = setting.yPos - size.height;
     }
 
     ctx.drawImage(img, x, y, size.width, size.height);
+  }
+
+  // ★重要: この関数も忘れずに貼り付けてください！
+  function calculateFittedSize(img, maxWidth, maxHeight) {
+    const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+    return { width: img.width * ratio, height: img.height * ratio };
   }
 
   function updateBtn() {
