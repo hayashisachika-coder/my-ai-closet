@@ -5,27 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Real Closet</title>
   <style>
-    /* --- 基本スタイル --- */
+    /* CSSは前回と同じ */
     body { font-family: "Helvetica Neue", Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f5f7fa; color: #333; }
     .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
     h2 { margin-top: 0; color: #444; text-align: center; }
     h3 { color: #ff6b6b; margin-bottom: 10px; }
-    
-    /* 入力フォーム */
     label { font-weight: bold; font-size: 0.9em; color: #666; display: block; margin-top: 15px; }
     input, select, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
     button#saveBtn, button#generateBtn { background-color: #ff6b6b; color: white; border: none; font-weight: bold; margin-top: 25px; cursor: pointer; }
     button:disabled { background-color: #ccc; cursor: not-allowed; }
     button.sub-btn { background:#555; color:white; font-size:0.9em; padding:8px; border:none; margin-bottom:20px; cursor:pointer; }
-    
-    /* 季節選択 */
     .season-group { display: flex; gap: 10px; margin-top: 5px; }
     .season-group label { margin: 0; padding: 10px; background: #eee; border-radius: 5px; font-weight: normal; cursor: pointer; text-align: center; flex: 1; }
     .season-group input { display: none; }
     .season-group input:checked + span { color: #ff6b6b; font-weight: bold; }
     .season-group label:has(input:checked) { background: #ffebeb; border: 1px solid #ff6b6b; }
-
-    /* リスト表示 */
     details { margin-bottom: 12px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: white; }
     summary { font-weight: bold; cursor: pointer; padding: 12px 15px; background: #f9f9f9; display: flex; justify-content: space-between; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; }
@@ -34,18 +28,12 @@
     .grid input { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; }
     .grid input:checked + img { border-color: #ff6b6b; background: #ffebeb; }
     .grid input:checked + img::after { content: "✔"; position: absolute; top: 5px; right: 5px; background: #ff6b6b; color: white; border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; }
-
-    /* --- コラージュ結果エリア --- */
     #proposal-area { margin-top: 30px; border-top: 2px dashed #ddd; padding-top: 25px; }
     .proposal-card { border: 1px solid #eee; border-radius: 12px; overflow: hidden; margin-bottom: 25px; background: #fff; }
-    
-    /* キャンバス */
     canvas.outfit-canvas { width: 100%; height: auto; display: block; background-color: #fff; border-bottom: 1px solid #eee; }
-    
     .proposal-content { padding: 15px; }
     .proposal-title { font-weight: bold; margin: 0 0 8px 0; color: #333; border-left: 4px solid #ff6b6b; padding-left: 10px; }
     .proposal-desc { font-size: 0.9em; color: #666; line-height: 1.6; }
-    
     #gen-loading { text-align: center; padding: 40px; display: none; }
     .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid rgba(255,107,107,.3); border-radius: 50%; border-top-color: #ff6b6b; animation: spin 1s infinite; margin-bottom: 10px; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -55,8 +43,6 @@
 
 <div class="card">
   <h2>✨ アイテム登録</h2>
-  <p style="font-size:0.8em; color:#888; text-align:center;">※背景透過したPNG画像がおすすめです</p>
-  
   <label>写真を撮る・選ぶ</label>
   <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect()">
   
@@ -66,8 +52,8 @@
   </div>
   
   <label>大カテゴリ</label>
-  <select id="mainCat">
-    <option value="">(AI解析待ち...)</option>
+  <select id="mainCat" onchange="updateSubCatOptions()">
+    <option value="">選択してください</option>
     <option value="トップス">トップス</option>
     <option value="ボトムス">ボトムス</option>
     <option value="ワンピース">ワンピース</option>
@@ -78,8 +64,14 @@
     <option value="その他">その他</option>
   </select>
 
+  <label>小カテゴリ</label>
+  <select id="subCat">
+    <option value="">大カテゴリを選んでください</option>
+  </select>
+
   <label>アイテム名</label>
-  <input type="text" id="subCat" placeholder="例: 白ニット">
+  <input type="text" id="itemName" placeholder="例: ギャザーハイネックブラウス">
+  
   <label>特徴・色</label>
   <input type="text" id="features" placeholder="自動入力">
   
@@ -102,21 +94,58 @@
   <div id="proposal-area">
     <h3>✨ コーデ提案 (Collage)</h3>
     <p id="guide-msg" style="font-size:0.9em; color:#666;">使いたい服を選択してください</p>
-    
     <button id="generateBtn" onclick="generateOutfit()" disabled>選択した服でコーデ作成</button>
-    
-    <div id="gen-loading">
-      <div class="spinner"></div>
-      <p>AIが組み合わせを考え中...</p>
-    </div>
-    
+    <div id="gen-loading"><div class="spinner"></div><p>AIが組み合わせを考え中...</p></div>
     <div id="proposal-results"></div>
   </div>
 </div>
 
 <script>
-  // ★ここにGASのURLを貼ってください！
-  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwkjflFsRpSsGiXj9au78QfhVcDZryVVKeHuuLKA4-jByi4_pcmESf1X51Oj6PiLWGjFw/exec"; 
+  // ★GASのURLをここに貼ってください
+  const GAS_API_URL = "https://script.google.com/macros/s/xxxxxxxxxxxx/exec";
+
+  // --- 小カテゴリの定義 ---
+  const subCategoryData = {
+    "トップス": ["Tシャツ/カットソー", "シャツ/ブラウス", "ニット/セーター", "スウェット/パーカー", "カーディガン", "ベスト", "キャミソール/タンクトップ", "その他トップス"],
+    "ボトムス": ["デニム", "パンツ", "スカート", "ショートパンツ", "その他ボトムス"],
+    "ワンピース": ["ワンピース", "ジャンパースカート", "オールインワン", "その他ワンピ"],
+    "アウター": ["コート", "ジャケット/ブルゾン", "ダウン", "カーディガン(厚手)", "その他アウター"],
+    "シューズ": ["スニーカー", "パンプス", "ブーツ", "サンダル", "ローファー/革靴", "その他シューズ"],
+    "バッグ": ["トートバッグ", "ショルダーバッグ", "リュック", "ハンドバッグ", "カゴバッグ", "その他バッグ"],
+    "アクセサリー": ["帽子", "ジュエリー", "マフラー/ストール", "ベルト", "時計", "その他アクセ"],
+    "その他": ["水着/浴衣", "ルームウェア", "その他"]
+  };
+
+  function updateSubCatOptions(selectedSub = null) {
+    const main = document.getElementById('mainCat').value;
+    const subSelect = document.getElementById('subCat');
+    subSelect.innerHTML = "";
+
+    if (!main || !subCategoryData[main]) {
+      subSelect.innerHTML = "<option value=''>大カテゴリを選んでください</option>";
+      return;
+    }
+
+    subCategoryData[main].forEach(item => {
+      const option = document.createElement('option');
+      option.value = item;
+      option.textContent = item;
+      subSelect.appendChild(option);
+    });
+
+    // AI解析結果などで指定があれば選択する
+    if (selectedSub) {
+      subSelect.value = selectedSub;
+      // リストにない場合（AIが変な値を返した場合）のケア
+      if (subSelect.value === "") {
+        const opt = document.createElement('option');
+        opt.value = selectedSub;
+        opt.textContent = selectedSub;
+        opt.selected = true;
+        subSelect.appendChild(opt);
+      }
+    }
+  }
 
   // --- API通信 ---
   async function callGasApi(action, data = {}) {
@@ -127,145 +156,35 @@
     return await response.json();
   }
 
-  // --- コーデ生成 (コラージュ作成) ---
-  async function generateOutfit() {
-    const checkedInputs = document.querySelectorAll('.grid input:checked');
-    const selectedItems = Array.from(checkedInputs).map(input => JSON.parse(input.value));
-    if (selectedItems.length === 0) return alert("服を選択してください");
-
-    const btn = document.getElementById('generateBtn');
-    const loading = document.getElementById('gen-loading');
-    const resultsDiv = document.getElementById('proposal-results');
-    
-    btn.disabled = true;
-    loading.style.display = "block";
-    resultsDiv.innerHTML = "";
-    loading.scrollIntoView({ behavior: "smooth" });
-
-    try {
-      // 1. AIに組み合わせを考えさせる
-      const result = await callGasApi('generate', { selectedItems });
-      
-      loading.style.display = "none";
-      btn.disabled = false;
-
-      if (result.error) {
-        alert("エラー: " + result.error);
-      } else {
-        // 2. 結果を描画
-        if(!result.proposals || result.proposals.length === 0) {
-          resultsDiv.innerHTML = "<p>提案が見つかりませんでした。</p>";
-        }
-        for (const proposal of result.proposals) {
-          await renderCollage(proposal, resultsDiv);
-        }
-      }
-    } catch (err) {
-      loading.style.display = "none";
-      btn.disabled = false;
-      alert("エラー: " + err);
-    }
-  }
-
-  // ★キャンバス描画ロジック
-  async function renderCollage(proposal, container) {
-    const card = document.createElement('div');
-    card.className = "proposal-card";
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 1000;
-    canvas.className = "outfit-canvas";
-    const ctx = canvas.getContext('2d');
-    
-    // 背景: 少しおしゃれなオフホワイト
-    ctx.fillStyle = "#ffffff"; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 画像読み込み
-    const imagePromises = proposal.outfitItems.map(item => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.onload = () => resolve({ img, cat: item.mainCategory });
-        img.onerror = () => resolve(null);
-        img.src = item.url;
-      });
-    });
-
-    const loadedImages = await Promise.all(imagePromises);
-
-    // --- 重ね順と配置 ---
-    // 下にあるものから先に描く (ボトムス→トップス→アウター→靴→バッグ)
-    const drawOrder = ["ボトムス", "ワンピース", "トップス", "アウター", "シューズ", "バッグ", "アクセサリー"];
-    
-    const itemsMap = {};
-    loadedImages.forEach(obj => { if(obj) itemsMap[obj.cat] = obj.img; });
-
-    drawOrder.forEach(cat => {
-      const img = itemsMap[cat];
-      if (img) drawItemOnCanvas(ctx, img, cat);
-    });
-
-    const infoDiv = document.createElement('div');
-    infoDiv.className = "proposal-content";
-    infoDiv.innerHTML = `<h4 class="proposal-title">${proposal.title}</h4><p class="proposal-desc">${proposal.description}</p>`;
-
-    card.appendChild(canvas);
-    card.appendChild(infoDiv);
-    container.appendChild(card);
-  }
-
-  // 配置座標の計算
-  function drawItemOnCanvas(ctx, img, category) {
-    const cw = 800; 
-    const aspect = img.width / img.height;
-    let x, y, w, h;
-
-    if (category === "トップス") {
-      w = 360; h = w / aspect;
-      x = (cw - w) / 2; y = 80;
-    } else if (category === "ボトムス") {
-      w = 340; h = w / aspect;
-      x = (cw - w) / 2; y = 380; // トップスの下
-    } else if (category === "ワンピース") {
-      w = 400; h = w / aspect;
-      x = (cw - w) / 2; y = 100;
-    } else if (category === "アウター") {
-      w = 420; h = w / aspect;
-      x = (cw - w) / 2; y = 60; // トップスの少し上から覆う
-    } else if (category === "シューズ") {
-      w = 220; h = w / aspect;
-      x = (cw - w) / 2 + 80; y = 750;
-    } else if (category === "バッグ") {
-      w = 250; h = w / aspect;
-      x = 50; y = 300; // 左側
-    } else { // その他・アクセ
-      w = 150; h = w / aspect;
-      x = 600; y = 100;
-    }
-
-    ctx.drawImage(img, x, y, w, h);
-  }
-
-  // --- 基本機能 (前回と同じ) ---
+  // --- 画像選択 & AI解析 ---
   let fileData = null;
   function handleFileSelect() {
     const file = document.getElementById('fileInput').files[0];
     const preview = document.getElementById('preview');
     const loading = document.getElementById('ai-loading');
+    
     if (file) {
       const reader = new FileReader();
       reader.onload = async function(e) {
         preview.src = e.target.result; preview.style.display = 'block'; loading.style.display = 'block';
         fileData = { filename: file.name, mimeType: file.type, image: e.target.result };
+        
         try {
           const result = await callGasApi('analyze', fileData);
           loading.style.display = 'none';
-          if (result.error) { alert("解析エラー: " + result.error); } else {
+          
+          if (result.error) {
+             alert("解析エラー: " + result.error);
+          } else {
+            // 大カテゴリセット
             document.getElementById('mainCat').value = result.mainCategory || "その他";
-            document.getElementById('subCat').value = result.subCategory || "";
+            // 小カテゴリの選択肢を更新してから値をセット
+            updateSubCatOptions(result.subCategory);
+            // アイテム名
+            document.getElementById('itemName').value = result.itemName || "";
+            // 特徴
             document.getElementById('features').value = (result.color || "") + " " + (result.features || "");
+            // 季節
             const seasons = result.seasons || [];
             document.querySelectorAll('input[name="season"]').forEach(cb => { cb.checked = seasons.includes(cb.value); });
           }
@@ -275,29 +194,35 @@
     }
   }
 
+  // --- データ保存 ---
   async function uploadData() {
     if (!fileData) return alert("画像を選んでください");
     const btn = document.getElementById('saveBtn');
     btn.disabled = true; btn.innerText = "送信中...";
+    
     const data = {
       ...fileData,
       mainCategory: document.getElementById('mainCat').value,
-      subCategory: document.getElementById('subCat').value,
+      subCategory: document.getElementById('subCat').value, // 選択式
+      itemName: document.getElementById('itemName').value,   // 自由入力
       features: document.getElementById('features').value,
       seasons: Array.from(document.querySelectorAll('input[name="season"]:checked')).map(e => e.value)
     };
+
     try {
       const result = await callGasApi('upload', data);
       if (result.success) {
         alert("保存完了！");
+        // リセット
         document.getElementById('fileInput').value = ""; document.getElementById('preview').style.display = 'none';
-        document.getElementById('subCat').value = ""; document.getElementById('features').value = "";
+        document.getElementById('itemName').value = ""; document.getElementById('features').value = "";
         document.querySelectorAll('input[name="season"]').forEach(cb => cb.checked = false);
         fileData = null; loadItems();
       } else { alert("エラー: " + result.message); }
     } catch (err) { alert("通信エラー: " + err); } finally { btn.disabled = false; btn.innerText = "保存する"; }
   }
 
+  // --- リスト表示 ---
   window.onload = loadItems;
   async function loadItems() {
     const container = document.getElementById('closet-container');
@@ -317,7 +242,7 @@
     const tree = {};
     items.forEach(item => {
       const main = item.mainCategory || "未分類";
-      const sub = item.subCategory || "その他";
+      const sub = item.subCategory || "その他"; // 小カテゴリで分類
       if (!tree[main]) tree[main] = {};
       if (!tree[main][sub]) tree[main][sub] = [];
       tree[main][sub].push(item);
@@ -333,13 +258,14 @@
       for (const [subCat, catItems] of Object.entries(subGroups)) {
         const subHeader = document.createElement('div');
         subHeader.textContent = subCat;
-        subHeader.style.fontSize = "0.9em"; subHeader.style.color = "#666"; subHeader.style.margin = "10px 0 5px 15px"; subHeader.style.fontWeight = "bold"; subHeader.style.borderLeft = "3px solid #ff6b6b"; subHeader.style.paddingLeft = "8px";
+        subHeader.style.cssText = "font-size:0.9em; color:#666; margin:10px 0 5px 15px; font-weight:bold; border-left:3px solid #ff6b6b; padding-left:8px;";
         details.appendChild(subHeader);
 
         const grid = document.createElement('div');
         grid.className = 'grid';
         catItems.forEach(item => {
-          const titleText = `${item.subCategory} (${item.features})`;
+          // ツールチップにアイテム名を表示
+          const titleText = `${item.itemName || item.subCategory} (${item.features})`;
           grid.innerHTML += `
             <label title="${titleText}">
               <input type="checkbox" onchange="updateBtn()" value='${JSON.stringify(item)}'>
@@ -353,15 +279,66 @@
     }
   }
 
+  // --- コラージュ機能 (前回のまま) ---
+  async function generateOutfit() {
+    const checkedInputs = document.querySelectorAll('.grid input:checked');
+    const selectedItems = Array.from(checkedInputs).map(input => JSON.parse(input.value));
+    if (selectedItems.length === 0) return alert("服を選択してください");
+    
+    const btn = document.getElementById('generateBtn');
+    const loading = document.getElementById('gen-loading');
+    const resultsDiv = document.getElementById('proposal-results');
+    btn.disabled = true; loading.style.display = "block"; resultsDiv.innerHTML = ""; loading.scrollIntoView({ behavior: "smooth" });
+
+    try {
+      const result = await callGasApi('generate', { selectedItems });
+      loading.style.display = "none"; btn.disabled = false;
+      if (result.error) { alert("エラー: " + result.error); } else {
+        if(!result.proposals || result.proposals.length === 0) resultsDiv.innerHTML = "<p>提案なし</p>";
+        for (const proposal of result.proposals) { await renderCollage(proposal, resultsDiv); }
+      }
+    } catch (err) { loading.style.display = "none"; btn.disabled = false; alert("エラー: " + err); }
+  }
+
+  async function renderCollage(proposal, container) {
+    const card = document.createElement('div'); card.className = "proposal-card";
+    const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 1000; canvas.className = "outfit-canvas";
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const imagePromises = proposal.outfitItems.map(item => new Promise(resolve => {
+      const img = new Image(); img.crossOrigin = "Anonymous";
+      img.onload = () => resolve({ img, cat: item.mainCategory });
+      img.onerror = () => resolve(null); img.src = item.url;
+    }));
+    const loadedImages = await Promise.all(imagePromises);
+    const itemsMap = {}; loadedImages.forEach(obj => { if(obj) itemsMap[obj.cat] = obj.img; });
+    const drawOrder = ["ボトムス", "ワンピース", "トップス", "アウター", "シューズ", "バッグ", "アクセサリー"];
+    drawOrder.forEach(cat => { if (itemsMap[cat]) drawItemOnCanvas(ctx, itemsMap[cat], cat); });
+
+    const infoDiv = document.createElement('div'); infoDiv.className = "proposal-content";
+    infoDiv.innerHTML = `<h4 class="proposal-title">${proposal.title}</h4><p class="proposal-desc">${proposal.description}</p>`;
+    card.appendChild(canvas); card.appendChild(infoDiv); container.appendChild(card);
+  }
+
+  function drawItemOnCanvas(ctx, img, category) {
+    const cw = 800; const aspect = img.width / img.height;
+    let x, y, w, h;
+    if (category === "トップス") { w = 360; h = w / aspect; x = (cw - w) / 2; y = 80; }
+    else if (category === "ボトムス") { w = 340; h = w / aspect; x = (cw - w) / 2; y = 380; }
+    else if (category === "ワンピース") { w = 400; h = w / aspect; x = (cw - w) / 2; y = 100; }
+    else if (category === "アウター") { w = 420; h = w / aspect; x = (cw - w) / 2; y = 60; }
+    else if (category === "シューズ") { w = 220; h = w / aspect; x = (cw - w) / 2 + 80; y = 750; }
+    else if (category === "バッグ") { w = 250; h = w / aspect; x = 50; y = 300; }
+    else { w = 150; h = w / aspect; x = 600; y = 100; }
+    ctx.drawImage(img, x, y, w, h);
+  }
+  
   function updateBtn() {
     const checked = document.querySelectorAll('.grid input:checked');
     const btn = document.getElementById('generateBtn');
     const guide = document.getElementById('guide-msg');
-    if (checked.length > 0) {
-      btn.disabled = false; btn.innerText = `選択した ${checked.length} 点でコーデ作成`; guide.style.display = 'none';
-    } else {
-      btn.disabled = true; btn.innerText = "選択した服でコーデ作成"; guide.style.display = 'block';
-    }
+    if (checked.length > 0) { btn.disabled = false; btn.innerText = `選択した ${checked.length} 点でコーデ作成`; guide.style.display = 'none'; }
+    else { btn.disabled = true; btn.innerText = "選択した服でコーデ作成"; guide.style.display = 'block'; }
   }
 </script>
 
