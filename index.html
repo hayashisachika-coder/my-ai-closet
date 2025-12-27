@@ -252,10 +252,6 @@
     }
   }
 
-  // ===============================================
-  // ▼▼▼ ここから修正・追加部分 ▼▼▼
-  // ===============================================
-
   // 画像圧縮用のヘルパー関数 (Max 800px / JPEG 80%品質)
   function compressImage(base64Str, maxWidth = 800, quality = 0.8) {
     return new Promise((resolve) => {
@@ -349,9 +345,58 @@
     }
   }
   
-  // ===============================================
-  // ▲▲▲ 修正ここまで ▲▲▲
-  // ===============================================
+  // --- データ送信処理（これが抜けていました！） ---
+  async function uploadData() {
+    // 1. 画像があるかチェック
+    if (!fileData) return alert("画像を選んでください");
+    
+    const btn = document.getElementById('saveBtn');
+    
+    // 2. ボタンを「送信中...」にして連打防止
+    btn.disabled = true; 
+    btn.innerText = "送信中...";
+
+    // 3. フォームの入力内容をまとめる
+    const data = {
+      ...fileData, // ここに圧縮済み画像データが入っています
+      mainCategory: document.getElementById('mainCat').value,
+      subCategory: document.getElementById('subCat').value,
+      itemName: document.getElementById('itemName').value,
+      features: document.getElementById('features').value,
+      seasons: Array.from(document.querySelectorAll('input[name="season"]:checked')).map(e => e.value)
+    };
+
+    // 4. GASに送信
+    try {
+      const result = await callGasApi('upload', data);
+      
+      if (result.success && result.item) {
+        alert("保存完了！");
+        
+        // リロードなしでリストの一番上に追加
+        globalItems.unshift(result.item);
+        await localforage.setItem(CACHE_KEY, globalItems);
+        renderCloset(globalItems);
+        
+        // フォームをリセット（次の登録のために綺麗にする）
+        document.getElementById('fileInput').value = ""; 
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('itemName').value = ""; 
+        document.getElementById('features').value = "";
+        document.querySelectorAll('input[name="season"]').forEach(cb => cb.checked = false);
+        fileData = null; // 画像データも空にする
+        
+      } else { 
+        alert("エラー: " + result.message); 
+      }
+    } catch (err) { 
+      alert("通信エラー: " + err); 
+    } finally { 
+      // 5. ボタンを元に戻す
+      btn.disabled = false; 
+      btn.innerText = "保存する"; 
+    }
+  }
 
   // --- 削除処理 ---
   async function doDeleteItem() {
