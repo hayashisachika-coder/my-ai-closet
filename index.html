@@ -182,7 +182,7 @@
   async function loadItems(forceUpdate = false) {
     const container = document.getElementById('closet-container');
     
-    // 1. キャッシュがあればそれを先に表示 (強制更新時以外)
+    // 1. キャッシュ読み込み
     if (!forceUpdate) {
       const cachedData = localStorage.getItem(CACHE_KEY);
       if (cachedData) {
@@ -192,7 +192,7 @@
           if (globalItems.length > 0) {
             renderCloset(globalItems);
             updateBtn();
-            return; // サーバー通信せずに終了
+            return; 
           }
         } catch (e) {
           console.error("キャッシュ読み込みエラー", e);
@@ -200,16 +200,30 @@
       }
     }
 
-    // 2. サーバー通信 (キャッシュがない、または更新ボタンを押した時)
-    container.innerHTML = '<p style="text-align:center; color:#999;">サーバーから読み込み中...<br>(時間がかかる場合があります)</p>';
+    // 2. サーバー通信
+    container.innerHTML = '<p style="text-align:center; color:#999;">サーバーから読み込み中...<br>(軽量モード)</p>';
     
     try {
       const result = await callGasApi('getList');
       const items = result.items || [];
       
-      // データを保存
       globalItems = items;
-      localStorage.setItem(CACHE_KEY, JSON.stringify(items)); // スマホに保存
+
+      // ★ここが重要: 保存してみて、エラー（容量オーバー）ならリセットする
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(items));
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+          console.warn("容量オーバーのためキャッシュをクリアします");
+          localStorage.clear(); // 全削除して掃除
+          try {
+             // 掃除してからもう一度保存トライ
+             localStorage.setItem(CACHE_KEY, JSON.stringify(items));
+          } catch(retryE) {
+             console.error("それでも保存できませんでした (画像が多すぎます)");
+          }
+        }
+      }
 
       if (items.length === 0) { 
         container.innerHTML = "<p style='text-align:center;'>まだ服がありません</p>"; 
@@ -218,9 +232,7 @@
       renderCloset(items);
       updateBtn();
       
-      if (forceUpdate) {
-        alert("最新のリストを読み込みました");
-      }
+      if (forceUpdate) alert("最新のリストを読み込みました");
 
     } catch (err) { 
       container.innerHTML = "<p>読み込み失敗: " + err + "</p>"; 
