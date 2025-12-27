@@ -400,7 +400,7 @@
     } catch(e) { alert("通信エラー: " + e); }
   }
 
-  // 一覧描画 (変更なし)
+  // 一覧描画 (画像表示対策版)
   function renderCloset(items) {
     const container = document.getElementById('closet-container');
     container.innerHTML = "";
@@ -427,10 +427,24 @@
         const grid = document.createElement('div'); grid.className = 'grid';
         catItems.forEach(item => {
           const div = document.createElement('div'); div.className = 'grid-item';
-          const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = JSON.stringify(item); checkbox.onchange = updateBtn;
-          const img = document.createElement('img'); img.src = item.url; img.loading = 'lazy'; img.style.objectFit = 'contain';
+          
+          const checkbox = document.createElement('input'); 
+          checkbox.type = 'checkbox'; 
+          checkbox.value = JSON.stringify(item); 
+          checkbox.onchange = updateBtn;
+          
+          const img = document.createElement('img'); 
+          img.src = item.url; 
+          
+          // ★ここが修正ポイント: これを入れるとGoogleドライブの画像が表示されやすくなります
+          img.referrerPolicy = "no-referrer"; 
+          
+          img.loading = 'lazy'; 
+          img.style.objectFit = 'contain';
+          
           const editBtn = document.createElement('div'); editBtn.className = 'edit-btn'; editBtn.textContent = '✏️';
           editBtn.onclick = (e) => { e.preventDefault(); openEditModal(item); };
+          
           div.appendChild(checkbox); div.appendChild(img); div.appendChild(editBtn);
           grid.appendChild(div);
         });
