@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Real Closet</title>
+  <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
   <style>
-    /* --- 既存CSS (省略なし) --- */
     body { font-family: "Helvetica Neue", Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f5f7fa; color: #333; }
     .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
     h2 { margin-top: 0; color: #444; text-align: center; }
@@ -24,20 +24,18 @@
     summary { font-weight: bold; cursor: pointer; padding: 12px 15px; background: #f9f9f9; display: flex; justify-content: space-between; }
     
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; }
-    .grid-item { position: relative; } /* 親要素 */
+    .grid-item { position: relative; }
     .grid img { width: 100%; aspect-ratio: 1/1; object-fit: contain; border-radius: 6px; border: 1px solid #eee; background: #fafafa; }
     .grid input { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index: 2; }
     .grid input:checked + img { border-color: #ff6b6b; background: #ffebeb; }
     .grid input:checked + img::after { content: "✔"; position: absolute; top: 5px; right: 5px; background: #ff6b6b; color: white; border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; }
     
-    /* ★NEW: 編集ボタン */
     .edit-btn {
       position: absolute; bottom: 5px; right: 5px; z-index: 3;
       background: rgba(255, 255, 255, 0.9); border: 1px solid #ddd; border-radius: 50%;
       width: 24px; height: 24px; text-align: center; line-height: 22px; font-size: 14px; cursor: pointer; color: #555;
     }
 
-    /* ★NEW: モーダルウィンドウ */
     #edit-modal {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
@@ -136,10 +134,8 @@
     
     <label>アイテム名</label>
     <input type="text" id="edit-itemName">
-    
     <label>特徴</label>
     <input type="text" id="edit-features">
-    
     <label>季節感</label>
     <div class="season-group">
       <label><input type="checkbox" name="edit-season" value="春"> <span>春</span></label>
@@ -156,8 +152,8 @@
 </div>
 
 <script>
-  // ★GASのURL（あなたのURLのまま変更しないでください）
-  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwkjflFsRpSsGiXj9au78QfhVcDZryVVKeHuuLKA4-jByi4_pcmESf1X51Oj6PiLWGjFw/exec";
+  // ★GASのURLをここに貼り付けてください
+  const GAS_API_URL = "https://script.google.com/macros/s/xxxxxxxxxxxx/exec";
 
   // --- 定義系 ---
   const subCategoryData = {
@@ -171,37 +167,32 @@
     "その他": ["水着/浴衣", "ルームウェア", "その他"]
   };
 
-  // --- キャッシュ管理用の変数 (★NEW) ---
-  const CACHE_KEY = "myClosetData_v1";
-  let globalItems = []; // メモリ上でリストを保持
+  // --- キャッシュ設定 (IndexedDB使用) ---
+  const CACHE_KEY = "myClosetData_Biz";
+  let globalItems = [];
 
-  // --- 読み込み処理 (キャッシュ優先) (★NEW) ---
+  // --- 読み込み処理 ---
   window.onload = () => loadItems(false);
 
-  // forceUpdate: trueならサーバーから強制再取得
   async function loadItems(forceUpdate = false) {
     const container = document.getElementById('closet-container');
     
-    // 1. キャッシュ読み込み
+    // 1. キャッシュ確認 (localforageを使用)
     if (!forceUpdate) {
-      const cachedData = localStorage.getItem(CACHE_KEY);
-      if (cachedData) {
-        console.log("キャッシュから表示します");
-        try {
-          globalItems = JSON.parse(cachedData);
-          if (globalItems.length > 0) {
-            renderCloset(globalItems);
-            updateBtn();
-            return; 
-          }
-        } catch (e) {
-          console.error("キャッシュ読み込みエラー", e);
+      try {
+        const cachedData = await localforage.getItem(CACHE_KEY);
+        if (cachedData && cachedData.length > 0) {
+          console.log("IndexedDBからキャッシュを表示");
+          globalItems = cachedData;
+          renderCloset(globalItems);
+          updateBtn();
+          return;
         }
-      }
+      } catch (e) { console.error("キャッシュ読込エラー", e); }
     }
 
     // 2. サーバー通信
-    container.innerHTML = '<p style="text-align:center; color:#999;">サーバーから読み込み中...<br>(軽量モード)</p>';
+    container.innerHTML = '<p style="text-align:center; color:#999;">サーバーから全データを取得中...<br>(初回は少し時間がかかります)</p>';
     
     try {
       const result = await callGasApi('getList');
@@ -209,20 +200,11 @@
       
       globalItems = items;
 
-      // ★ここが重要: 保存してみて、エラー（容量オーバー）ならリセットする
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(items));
-      } catch (e) {
-        if (e.name === 'QuotaExceededError') {
-          console.warn("容量オーバーのためキャッシュをクリアします");
-          localStorage.clear(); // 全削除して掃除
-          try {
-             // 掃除してからもう一度保存トライ
-             localStorage.setItem(CACHE_KEY, JSON.stringify(items));
-          } catch(retryE) {
-             console.error("それでも保存できませんでした (画像が多すぎます)");
-          }
-        }
+      if (items.length > 0) {
+        // ★IndexedDBへ保存 (容量制限なし)
+        try {
+          await localforage.setItem(CACHE_KEY, items);
+        } catch (e) { console.error("保存エラー", e); }
       }
 
       if (items.length === 0) { 
@@ -232,14 +214,22 @@
       renderCloset(items);
       updateBtn();
       
-      if (forceUpdate) alert("最新のリストを読み込みました");
+      if (forceUpdate) alert("最新リストに更新しました！");
 
     } catch (err) { 
       container.innerHTML = "<p>読み込み失敗: " + err + "</p>"; 
     }
   }
 
-  // 小カテゴリ選択肢更新
+  // --- API通信 ---
+  async function callGasApi(action, data = {}) {
+    const response = await fetch(GAS_API_URL, {
+      method: "POST", body: JSON.stringify({ action, ...data })
+    });
+    return await response.json();
+  }
+
+  // --- その他機能 ---
   function updateSubCatOptions(targetId, mainVal, selectedSub = null) {
     const subSelect = document.getElementById(targetId);
     subSelect.innerHTML = "";
@@ -262,15 +252,7 @@
     }
   }
 
-  // API通信
-  async function callGasApi(action, data = {}) {
-    const response = await fetch(GAS_API_URL, {
-      method: "POST", body: JSON.stringify({ action, ...data })
-    });
-    return await response.json();
-  }
-
-  // 画像選択 & AI解析
+  // --- 保存処理 (IndexedDB更新) ---
   let fileData = null;
   function handleFileSelect() {
     const file = document.getElementById('fileInput').files[0];
@@ -298,11 +280,9 @@
     }
   }
 
-  // 保存処理 (★NEW: リロードなしで追加)
   async function uploadData() {
     if (!fileData) return alert("画像を選んでください");
     const btn = document.getElementById('saveBtn'); btn.disabled = true; btn.innerText = "送信中...";
-    
     const data = {
       ...fileData,
       mainCategory: document.getElementById('mainCat').value,
@@ -311,69 +291,41 @@
       features: document.getElementById('features').value,
       seasons: Array.from(document.querySelectorAll('input[name="season"]:checked')).map(e => e.value)
     };
-
     try {
       const result = await callGasApi('upload', data);
-      
-      // ★修正ポイント: サーバーからのitem返却を利用して即時反映
-      if (result.success) {
+      if (result.success && result.item) {
         alert("保存完了！");
+        // リロードなしで追加
+        globalItems.unshift(result.item);
+        await localforage.setItem(CACHE_KEY, globalItems);
+        renderCloset(globalItems);
         
-        // サーバーが新しいitemデータを返してくれている場合
-        if (result.item) {
-          globalItems.unshift(result.item); // 先頭に追加
-          localStorage.setItem(CACHE_KEY, JSON.stringify(globalItems)); // キャッシュ更新
-          renderCloset(globalItems); // 再描画
-        } else {
-          // 万が一返ってこなかったらロードし直し
-          loadItems(true);
-        }
-        
-        // フォームリセット
+        // リセット
         document.getElementById('fileInput').value = ""; document.getElementById('preview').style.display = 'none';
         document.getElementById('itemName').value = ""; document.getElementById('features').value = "";
         document.querySelectorAll('input[name="season"]').forEach(cb => cb.checked = false);
         fileData = null;
-
       } else { alert("エラー: " + result.message); }
     } catch (err) { alert("通信エラー: " + err); } finally { btn.disabled = false; btn.innerText = "保存する"; }
   }
 
-  // モーダル編集・削除
-  function openEditModal(item) {
-    document.getElementById('edit-modal').style.display = 'flex';
-    document.getElementById('edit-id').value = item.id;
-    document.getElementById('edit-img').src = item.url;
-    document.getElementById('edit-mainCat').value = item.mainCategory;
-    updateSubCatOptions('edit-subCat', item.mainCategory, item.subCategory);
-    document.getElementById('edit-itemName').value = item.itemName || "";
-    document.getElementById('edit-features').value = item.features || "";
-    const seasons = (item.seasons || "").split(",");
-    document.querySelectorAll('input[name="edit-season"]').forEach(cb => { cb.checked = seasons.includes(cb.value); });
-  }
-
-  function closeModal() {
-    document.getElementById('edit-modal').style.display = 'none';
-  }
-
-  // 削除実行 (★NEW: リロードなし)
+  // --- 削除処理 ---
   async function doDeleteItem() {
-    if (!confirm("本当にこのアイテムを削除しますか？")) return;
+    if (!confirm("本当に削除しますか？")) return;
     const id = document.getElementById('edit-id').value;
     closeModal();
     try {
       const result = await callGasApi('delete', { id });
       if (result.success) {
         alert("削除しました");
-        // 手元のリストから削除して保存
         globalItems = globalItems.filter(item => item.id !== id);
-        localStorage.setItem(CACHE_KEY, JSON.stringify(globalItems));
+        await localforage.setItem(CACHE_KEY, globalItems);
         renderCloset(globalItems);
       } else { alert("エラー: " + result.message); }
     } catch(e) { alert("通信エラー: " + e); }
   }
 
-  // 更新実行 (★NEW: リロードなし)
+  // --- 更新処理 ---
   async function doUpdateItem() {
     const id = document.getElementById('edit-id').value;
     const data = {
@@ -388,19 +340,18 @@
     try {
       const result = await callGasApi('edit', data);
       if (result.success) {
-        alert("情報を更新しました");
-        // 手元のリストを更新して保存
+        alert("更新しました");
         const index = globalItems.findIndex(item => item.id === id);
         if (index !== -1) {
             globalItems[index] = { ...globalItems[index], ...data, seasons: data.seasons.join(',') };
-            localStorage.setItem(CACHE_KEY, JSON.stringify(globalItems));
+            await localforage.setItem(CACHE_KEY, globalItems);
             renderCloset(globalItems);
         }
       } else { alert("エラー: " + result.message); }
     } catch(e) { alert("通信エラー: " + e); }
   }
 
-  // 一覧描画 (画像表示対策版)
+  // --- 描画系 (Base64なのでcrossOrigin不要・referrerPolicyも不要) ---
   function renderCloset(items) {
     const container = document.getElementById('closet-container');
     container.innerHTML = "";
@@ -427,24 +378,15 @@
         const grid = document.createElement('div'); grid.className = 'grid';
         catItems.forEach(item => {
           const div = document.createElement('div'); div.className = 'grid-item';
-          
-          const checkbox = document.createElement('input'); 
-          checkbox.type = 'checkbox'; 
-          checkbox.value = JSON.stringify(item); 
-          checkbox.onchange = updateBtn;
+          const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = JSON.stringify(item); checkbox.onchange = updateBtn;
           
           const img = document.createElement('img'); 
           img.src = item.url; 
-          
-          // ★ここが修正ポイント: これを入れるとGoogleドライブの画像が表示されやすくなります
-          img.referrerPolicy = "no-referrer"; 
-          
           img.loading = 'lazy'; 
           img.style.objectFit = 'contain';
           
           const editBtn = document.createElement('div'); editBtn.className = 'edit-btn'; editBtn.textContent = '✏️';
           editBtn.onclick = (e) => { e.preventDefault(); openEditModal(item); };
-          
           div.appendChild(checkbox); div.appendChild(img); div.appendChild(editBtn);
           grid.appendChild(div);
         });
@@ -454,7 +396,7 @@
     }
   }
 
-  // コラージュ生成 (変更なし)
+  // --- コラージュ機能 (Base64版) ---
   async function generateOutfit() {
     const checkedInputs = document.querySelectorAll('.grid input:checked');
     const selectedItems = Array.from(checkedInputs).map(input => JSON.parse(input.value));
@@ -471,22 +413,19 @@
     } catch (err) { loading.style.display = "none"; btn.disabled = false; alert("エラー: " + err); }
   }
 
-  // コラージュ描画 (img.crossOriginなし版)
   async function renderCollage(proposal, container) {
     const card = document.createElement('div'); card.className = "proposal-card";
     const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 1000; canvas.className = "outfit-canvas";
     const ctx = canvas.getContext('2d'); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     const imagePromises = proposal.outfitItems.map(item => new Promise(resolve => {
-      const img = new Image(); 
-      // img.crossOrigin = "Anonymous"; // 削除済み
-      img.onload = () => resolve({ img, item }); 
-      img.onerror = (e) => {
-        console.error("読込失敗:", item.itemName);
-        img.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNjY2MiLz48dGV4dCB4PSI1MCIgeT0iNTAiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkVycm9yPC90ZXh0Pjwvc3ZnPg==";
-        resolve({ img, item });
-      };
+      const img = new Image();
+      // Base64なのでcrossOrigin不要
+      img.onload = () => resolve({ img, item });
+      img.onerror = () => { console.error("読込エラー"); resolve({ img, item }); };
       img.src = item.url;
     }));
+    
     const loadedObjects = await Promise.all(imagePromises);
     const itemsMap = {};
     loadedObjects.forEach(obj => {
@@ -505,7 +444,7 @@
     card.appendChild(canvas); card.appendChild(infoDiv); container.appendChild(card);
   }
 
-  // 配置ロジック (ニーハイ・スカート対応版)
+  // --- コラージュ配置 (ニーハイブーツ・インスタイル対応版) ---
   function drawItemOnCanvas(ctx, img, category) {
     const cw = 800; let setting = {};
     if (category === "トップス") { setting = { maxW: 360, maxH: 450, xOffset: 0, yPos: 80 }; }
@@ -514,7 +453,8 @@
     else if (category === "羽織り") { setting = { maxW: 330, maxH: 450, xOffset: 120, yPos: 40 }; }
     else if (category === "アウター") { setting = { maxW: 420, maxH: 600, xOffset: -150, yPos: 20 }; }
     else if (category === "シューズ") { 
-      setting = { maxW: 240, maxH: 1200, xOffset: 0, yPos: 950 }; // 中央・高さ無制限・底合わせ
+      // 高さ無制限・地面合わせ・中央配置
+      setting = { maxW: 240, maxH: 1200, xOffset: 0, yPos: 950 }; 
     }
     else if (category === "バッグ") { setting = { maxW: 240, maxH: 240, xOffset: -300, yPos: 350 }; }
     else { setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 }; }
@@ -534,6 +474,19 @@
     return { width: img.width * ratio, height: img.height * ratio };
   }
 
+  // --- モーダル系 ---
+  function openEditModal(item) {
+    document.getElementById('edit-modal').style.display = 'flex';
+    document.getElementById('edit-id').value = item.id;
+    document.getElementById('edit-img').src = item.url;
+    document.getElementById('edit-mainCat').value = item.mainCategory;
+    updateSubCatOptions('edit-subCat', item.mainCategory, item.subCategory);
+    document.getElementById('edit-itemName').value = item.itemName || "";
+    document.getElementById('edit-features').value = item.features || "";
+    const seasons = (item.seasons || "").split(",");
+    document.querySelectorAll('input[name="edit-season"]').forEach(cb => { cb.checked = seasons.includes(cb.value); });
+  }
+  function closeModal() { document.getElementById('edit-modal').style.display = 'none'; }
   function updateBtn() {
     const checked = document.querySelectorAll('.grid input:checked');
     const btn = document.getElementById('generateBtn');
@@ -542,6 +495,5 @@
     else { btn.disabled = true; btn.innerText = "選択した服でコーデ作成"; guide.style.display = 'block'; }
   }
 </script>
-
 </body>
 </html>
