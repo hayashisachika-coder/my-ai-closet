@@ -102,6 +102,14 @@
   <div id="proposal-area">
     <h3>✨ コーデ提案 (Collage)</h3>
     <p id="guide-msg" style="font-size:0.9em; color:#666;">使いたい服を選択してください</p>
+    
+    <label style="margin-top:0;">提案スタイル</label>
+    <select id="styleSelect" style="margin-bottom:15px;">
+      <option value="casual">カジュアル (元気・ラフ)</option>
+      <option value="kireime">きれいめ (オフィス・上品)</option>
+      <option value="yosoiki">よそ行き (華やか・デート)</option>
+    </select>
+
     <button id="generateBtn" onclick="generateOutfit()" disabled>選択した服でコーデ作成</button>
     <div id="gen-loading"><div class="spinner"></div><p>AIが組み合わせを考え中...</p></div>
     <div id="proposal-results"></div>
@@ -170,6 +178,7 @@
   // --- キャッシュ設定 (IndexedDB使用) ---
   const CACHE_KEY = "myClosetData_Biz";
   let globalItems = [];
+  let fileData = null; // 画像アップロード用変数
 
   // --- 読み込み処理 ---
   window.onload = () => loadItems(false);
@@ -252,7 +261,7 @@
     }
   }
 
-  // 画像リサイズ関数 (Max 800px / PNG形式を維持)
+  // --- 画像圧縮処理 (PNG維持・最大800px) ---
   function compressImage(base64Str, maxWidth = 800) {
     return new Promise((resolve) => {
       const img = new Image();
@@ -261,7 +270,6 @@
         let width = img.width;
         let height = img.height;
         
-        // 指定サイズより大きければリサイズ比率を計算
         if (width > maxWidth || height > maxWidth) {
           if (width > height) {
             height = Math.round(height * (maxWidth / width));
@@ -277,53 +285,43 @@
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         
-        // ★変更点1: 白背景を塗るのをやめました（透明を維持するため）
+        // 白背景なし（透明維持）
         ctx.clearRect(0, 0, width, height);
-        
-        // 画像を描画
         ctx.drawImage(img, 0, 0, width, height);
         
-        // ★変更点2: 'image/png' で書き出し (画質指定はPNGには無効なので削除)
         resolve(canvas.toDataURL('image/png'));
       };
       img.onerror = (e) => resolve(base64Str);
     });
   }
 
-  // ファイル選択処理
+  // --- ファイル選択ハンドラ ---
   function handleFileSelect() {
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
+    const file = document.getElementById('fileInput').files[0];
     const preview = document.getElementById('preview');
     const loading = document.getElementById('ai-loading');
     
     if (file) {
       const reader = new FileReader();
-      
       reader.onload = async function(e) {
         loading.style.display = 'block';
         preview.style.display = 'none';
         
-        // PNGのままリサイズ実行
         const originalBase64 = e.target.result;
         const compressedBase64 = await compressImage(originalBase64, 800);
         
         preview.src = compressedBase64;
         preview.style.display = 'block';
         
-        // グローバル変数にセット
-        // ★変更点3: 拡張子とmimeTypeも png に戻しました
         fileData = { 
           filename: file.name.replace(/\.[^/.]+$/, "") + ".png", 
           mimeType: "image/png", 
           image: compressedBase64 
         };
 
-        // AI解析へ
         try {
           const result = await callGasApi('analyze', fileData);
           loading.style.display = 'none';
-          
           if (result.error) { 
             alert("解析エラー: " + result.error); 
           } else {
@@ -339,25 +337,18 @@
           alert("通信エラー: " + err); 
         }
       };
-      
       reader.readAsDataURL(file);
     }
   }
-  
-  // --- データ送信処理（これが抜けていました！） ---
-  async function uploadData() {
-    // 1. 画像があるかチェック
-    if (!fileData) return alert("画像を選んでください");
-    
-    const btn = document.getElementById('saveBtn');
-    
-    // 2. ボタンを「送信中...」にして連打防止
-    btn.disabled = true; 
-    btn.innerText = "送信中...";
 
-    // 3. フォームの入力内容をまとめる
+  // --- 保存処理 ---
+  async function uploadData() {
+    if (!fileData) return alert("画像を選んでください");
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true; btn.innerText = "送信中...";
+
     const data = {
-      ...fileData, // ここに圧縮済み画像データが入っています
+      ...fileData,
       mainCategory: document.getElementById('mainCat').value,
       subCategory: document.getElementById('subCat').value,
       itemName: document.getElementById('itemName').value,
@@ -365,36 +356,24 @@
       seasons: Array.from(document.querySelectorAll('input[name="season"]:checked')).map(e => e.value)
     };
 
-    // 4. GASに送信
     try {
       const result = await callGasApi('upload', data);
-      
       if (result.success && result.item) {
         alert("保存完了！");
-        
-        // リロードなしでリストの一番上に追加
         globalItems.unshift(result.item);
         await localforage.setItem(CACHE_KEY, globalItems);
         renderCloset(globalItems);
         
-        // フォームをリセット（次の登録のために綺麗にする）
+        // リセット
         document.getElementById('fileInput').value = ""; 
         document.getElementById('preview').style.display = 'none';
         document.getElementById('itemName').value = ""; 
         document.getElementById('features').value = "";
         document.querySelectorAll('input[name="season"]').forEach(cb => cb.checked = false);
-        fileData = null; // 画像データも空にする
-        
-      } else { 
-        alert("エラー: " + result.message); 
-      }
-    } catch (err) { 
-      alert("通信エラー: " + err); 
-    } finally { 
-      // 5. ボタンを元に戻す
-      btn.disabled = false; 
-      btn.innerText = "保存する"; 
-    }
+        fileData = null;
+      } else { alert("エラー: " + result.message); }
+    } catch (err) { alert("通信エラー: " + err); } 
+    finally { btn.disabled = false; btn.innerText = "保存する"; }
   }
 
   // --- 削除処理 ---
@@ -439,7 +418,7 @@
     } catch(e) { alert("通信エラー: " + e); }
   }
 
-  // --- 描画系 (Base64なのでcrossOrigin不要・referrerPolicyも不要) ---
+  // --- 描画系 ---
   function renderCloset(items) {
     const container = document.getElementById('closet-container');
     container.innerHTML = "";
@@ -484,15 +463,20 @@
     }
   }
 
-  // --- コラージュ機能 (Base64版) ---
+  // --- コーデ生成 (スタイル指定対応) ---
   async function generateOutfit() {
     const checkedInputs = document.querySelectorAll('.grid input:checked');
     const selectedItems = Array.from(checkedInputs).map(input => JSON.parse(input.value));
     if (selectedItems.length === 0) return alert("服を選択してください");
-    const btn = document.getElementById('generateBtn'); const loading = document.getElementById('gen-loading'); const resultsDiv = document.getElementById('proposal-results');
+    
+    const btn = document.getElementById('generateBtn'); 
+    const loading = document.getElementById('gen-loading'); 
+    const resultsDiv = document.getElementById('proposal-results');
+    const selectedStyle = document.getElementById('styleSelect').value;
+
     btn.disabled = true; loading.style.display = "block"; resultsDiv.innerHTML = ""; loading.scrollIntoView({ behavior: "smooth" });
     try {
-      const result = await callGasApi('generate', { selectedItems });
+      const result = await callGasApi('generate', { selectedItems, style: selectedStyle });
       loading.style.display = "none"; btn.disabled = false;
       if (result.error) { alert("エラー: " + result.error); } else {
         if(!result.proposals || result.proposals.length === 0) resultsDiv.innerHTML = "<p>提案なし</p>";
@@ -508,7 +492,6 @@
     
     const imagePromises = proposal.outfitItems.map(item => new Promise(resolve => {
       const img = new Image();
-      // Base64なのでcrossOrigin不要
       img.onload = () => resolve({ img, item });
       img.onerror = () => { console.error("読込エラー"); resolve({ img, item }); };
       img.src = item.url;
@@ -532,7 +515,6 @@
     card.appendChild(canvas); card.appendChild(infoDiv); container.appendChild(card);
   }
 
-  // --- コラージュ配置 (ニーハイブーツ・インスタイル対応版) ---
   function drawItemOnCanvas(ctx, img, category) {
     const cw = 800; let setting = {};
     if (category === "トップス") { setting = { maxW: 360, maxH: 450, xOffset: 0, yPos: 80 }; }
