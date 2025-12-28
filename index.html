@@ -6,24 +6,30 @@
   <title>My Real Closet</title>
   <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
   <style>
-    body { font-family: "Helvetica Neue", Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f5f7fa; color: #333; }
+    body { font-family: "Helvetica Neue", Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f5f7fa; color: #333; padding-bottom: 80px; /* FABのために下部余白 */ }
     .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
     h2 { margin-top: 0; color: #444; text-align: center; }
     h3 { color: #ff6b6b; margin-bottom: 10px; }
     label { font-weight: bold; font-size: 0.9em; color: #666; display: block; margin-top: 15px; }
     input, select, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+    
+    /* ボタン類 */
     button#saveBtn, button#generateBtn { background-color: #ff6b6b; color: white; border: none; font-weight: bold; margin-top: 25px; cursor: pointer; }
     button:disabled { background-color: #ccc; cursor: not-allowed; }
     button.sub-btn { background:#555; color:white; font-size:0.9em; padding:8px; border:none; margin-bottom:20px; cursor:pointer; }
+
+    /* 季節チェックボックス */
     .season-group { display: flex; gap: 10px; margin-top: 5px; }
     .season-group label { margin: 0; padding: 10px; background: #eee; border-radius: 5px; font-weight: normal; cursor: pointer; text-align: center; flex: 1; }
     .season-group input { display: none; }
     .season-group input:checked + span { color: #ff6b6b; font-weight: bold; }
     .season-group label:has(input:checked) { background: #ffebeb; border: 1px solid #ff6b6b; }
+
+    /* アコーディオン */
     details { margin-bottom: 12px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: white; }
     summary { font-weight: bold; cursor: pointer; padding: 12px 15px; background: #f9f9f9; display: flex; justify-content: space-between; }
     
-    /* 5列グリッド（アイテム一覧） */
+    /* 5列グリッド */
     .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 8px; }
     .grid-item { position: relative; }
     .grid img { width: 100%; aspect-ratio: 1/1; object-fit: contain; border-radius: 4px; border: 1px solid #eee; background: #fafafa; }
@@ -31,13 +37,15 @@
     .grid input:checked + img { border-color: #ff6b6b; background: #ffebeb; }
     .grid input:checked + img::after { content: "✔"; position: absolute; top: 2px; right: 2px; background: #ff6b6b; color: white; border-radius: 50%; width: 16px; height: 16px; text-align: center; line-height: 16px; font-size: 10px; }
     
+    /* 編集ボタン(ペン) */
     .edit-btn {
       position: absolute; bottom: 2px; right: 2px; z-index: 3;
       background: rgba(255, 255, 255, 0.9); border: 1px solid #ddd; border-radius: 50%;
       width: 20px; height: 20px; text-align: center; line-height: 18px; font-size: 12px; cursor: pointer; color: #555;
     }
 
-    #edit-modal {
+    /* モーダル共通 (登録・編集) */
+    .modal-overlay {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
     }
@@ -46,76 +54,31 @@
     }
     .close-modal { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #999; }
     
+    /* コーデ提案エリア */
     #proposal-area { margin-top: 30px; border-top: 2px dashed #ddd; padding-top: 25px; }
-    
-    /* ▼▼▼ 変更点: コーデ結果を2列グリッド表示に変更 ▼▼▼ */
-    #proposal-results {
-      display: grid;
-      grid-template-columns: 1fr 1fr; /* 2列 */
-      gap: 10px;
-    }
-
-    /* タイトルと説明文を消したのでカードはシンプルに */
-    .proposal-card { 
-      border: 1px solid #eee; 
-      border-radius: 8px; 
-      overflow: hidden; 
-      background: #fff; 
-      /* margin-bottomはグリッドgapで代用するため削除 */
-    }
-    
-    canvas.outfit-canvas { 
-      width: 100%; 
-      height: auto; 
-      display: block; 
-      background-color: #fff; 
-    }
-    
-    /* 不要になったので削除しても良いが念のため非表示 */
+    #proposal-results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .proposal-card { border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: #fff; }
+    canvas.outfit-canvas { width: 100%; height: auto; display: block; background-color: #fff; }
     .proposal-content { display: none; }
 
+    /* ローディング */
     #gen-loading { text-align: center; padding: 40px; display: none; }
     .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid rgba(255,107,107,.3); border-radius: 50%; border-top-color: #ff6b6b; animation: spin 1s infinite; margin-bottom: 10px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ★フローティングアクションボタン(FAB) */
+    .fab-btn {
+      position: fixed; bottom: 20px; right: 20px;
+      width: 60px; height: 60px;
+      background-color: #ff6b6b; color: white;
+      border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      font-size: 30px; border: none; cursor: pointer; z-index: 900;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .fab-btn:active { transform: scale(0.95); }
   </style>
 </head>
 <body>
-
-<div class="card">
-  <h2>✨ アイテム登録</h2>
-  <label>写真を撮る・選ぶ</label>
-  <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect()">
-  <div id="preview-area" style="text-align:center; margin-top:10px;">
-    <img id="preview" style="max-width:100%; display:none; border-radius:8px;">
-    <div id="ai-loading" style="display:none; color:#ff6b6b; font-weight:bold;">🤖 画像解析中...</div>
-  </div>
-  <label>大カテゴリ</label>
-  <select id="mainCat" onchange="updateSubCatOptions('subCat', this.value)">
-    <option value="">選択してください</option>
-    <option value="トップス">トップス</option>
-    <option value="ボトムス">ボトムス</option>
-    <option value="ワンピース">ワンピース</option>
-    <option value="アウター">アウター</option>
-    <option value="シューズ">シューズ</option>
-    <option value="バッグ">バッグ</option>
-    <option value="アクセサリー">アクセサリー</option>
-    <option value="その他">その他</option>
-  </select>
-  <label>小カテゴリ</label>
-  <select id="subCat"><option value="">大カテゴリを選んでください</option></select>
-  <label>アイテム名</label>
-  <input type="text" id="itemName" placeholder="例: 白ニット">
-  <label>特徴・色</label>
-  <input type="text" id="features" placeholder="自動入力">
-  <label>季節感</label>
-  <div class="season-group">
-    <label><input type="checkbox" name="season" value="春"> <span>春</span></label>
-    <label><input type="checkbox" name="season" value="夏"> <span>夏</span></label>
-    <label><input type="checkbox" name="season" value="秋"> <span>秋</span></label>
-    <label><input type="checkbox" name="season" value="冬"> <span>冬</span></label>
-  </div>
-  <button id="saveBtn" onclick="uploadData()">保存する</button>
-</div>
 
 <div class="card">
   <h2>👗 My Closet</h2>
@@ -123,7 +86,7 @@
   <div id="closet-container"><p style="text-align:center; color:#999;">読み込み中...</p></div>
   
   <div id="proposal-area">
-    <h3>✨ コーデ提案 (Collage)</h3>
+    <h3>✨ コーデ提案</h3>
     <p id="guide-msg" style="font-size:0.9em; color:#666;">使いたい服を選択してください</p>
     
     <label style="margin-top:0;">提案スタイル</label>
@@ -135,14 +98,54 @@
 
     <button id="generateBtn" onclick="generateOutfit()" disabled>選択した服でコーデ作成</button>
     <div id="gen-loading"><div class="spinner"></div><p>AIが組み合わせを考え中...</p></div>
-    
     <div id="proposal-results"></div>
   </div>
 </div>
 
-<div id="edit-modal">
+<button class="fab-btn" onclick="openRegisterModal()">＋</button>
+
+<div id="register-modal" class="modal-overlay">
   <div class="modal-content">
-    <span class="close-modal" onclick="closeModal()">×</span>
+    <span class="close-modal" onclick="closeRegisterModal()">×</span>
+    <h2>✨ アイテム登録</h2>
+    <label>写真を撮る・選ぶ</label>
+    <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect()">
+    <div id="preview-area" style="text-align:center; margin-top:10px;">
+      <img id="preview" style="max-width:100%; display:none; border-radius:8px;">
+      <div id="ai-loading" style="display:none; color:#ff6b6b; font-weight:bold;">🤖 画像解析中...</div>
+    </div>
+    <label>大カテゴリ</label>
+    <select id="mainCat" onchange="updateSubCatOptions('subCat', this.value)">
+      <option value="">選択してください</option>
+      <option value="トップス">トップス</option>
+      <option value="ボトムス">ボトムス</option>
+      <option value="ワンピース">ワンピース</option>
+      <option value="アウター">アウター</option>
+      <option value="シューズ">シューズ</option>
+      <option value="バッグ">バッグ</option>
+      <option value="アクセサリー">アクセサリー</option>
+      <option value="その他">その他</option>
+    </select>
+    <label>小カテゴリ</label>
+    <select id="subCat"><option value="">大カテゴリを選んでください</option></select>
+    <label>アイテム名</label>
+    <input type="text" id="itemName" placeholder="例: 白ニット">
+    <label>特徴・色</label>
+    <input type="text" id="features" placeholder="自動入力">
+    <label>季節感</label>
+    <div class="season-group">
+      <label><input type="checkbox" name="season" value="春"> <span>春</span></label>
+      <label><input type="checkbox" name="season" value="夏"> <span>夏</span></label>
+      <label><input type="checkbox" name="season" value="秋"> <span>秋</span></label>
+      <label><input type="checkbox" name="season" value="冬"> <span>冬</span></label>
+    </div>
+    <button id="saveBtn" onclick="uploadData()">保存する</button>
+  </div>
+</div>
+
+<div id="edit-modal" class="modal-overlay">
+  <div class="modal-content">
+    <span class="close-modal" onclick="closeEditModal()">×</span>
     <h3>📝 アイテム編集</h3>
     <div style="text-align:center; margin-bottom:15px;">
       <img id="edit-img" style="height:150px; object-fit:contain;">
@@ -346,12 +349,15 @@
         globalItems.unshift(result.item);
         await localforage.setItem(CACHE_KEY, globalItems);
         renderCloset(globalItems);
+        
+        // リセット＆モーダル閉じる
         document.getElementById('fileInput').value = ""; 
         document.getElementById('preview').style.display = 'none';
         document.getElementById('itemName').value = ""; 
         document.getElementById('features').value = "";
         document.querySelectorAll('input[name="season"]').forEach(cb => cb.checked = false);
         fileData = null;
+        closeRegisterModal(); 
       } else { alert("エラー: " + result.message); }
     } catch (err) { alert("通信エラー: " + err); } 
     finally { btn.disabled = false; btn.innerText = "保存する"; }
@@ -360,7 +366,7 @@
   async function doDeleteItem() {
     if (!confirm("本当に削除しますか？")) return;
     const id = document.getElementById('edit-id').value;
-    closeModal();
+    closeEditModal();
     try {
       const result = await callGasApi('delete', { id });
       if (result.success) {
@@ -382,7 +388,7 @@
       features: document.getElementById('edit-features').value,
       seasons: Array.from(document.querySelectorAll('input[name="edit-season"]:checked')).map(e => e.value)
     };
-    closeModal();
+    closeEditModal();
     try {
       const result = await callGasApi('edit', data);
       if (result.success) {
@@ -441,7 +447,6 @@
     }
   }
 
-  // --- コーデ生成 (修正版：4つ提案・解説なし) ---
   async function generateOutfit() {
     const checkedInputs = document.querySelectorAll('.grid input:checked');
     const selectedItems = Array.from(checkedInputs).map(input => JSON.parse(input.value));
@@ -489,7 +494,6 @@
     const drawOrder = ["アウター", "羽織り", "トップス", "ワンピース", "ボトムス", "バッグ", "シューズ", "アクセサリー"];
     drawOrder.forEach(cat => { if (itemsMap[cat]) drawItemOnCanvas(ctx, itemsMap[cat], cat); });
     
-    // 文字表示部分(infoDiv)を削除し、画像のみ追加
     card.appendChild(canvas); 
     container.appendChild(card);
   }
@@ -497,11 +501,11 @@
   function drawItemOnCanvas(ctx, img, category) {
     const cw = 800; let setting = {};
     if (category === "トップス") { setting = { maxW: 360, maxH: 450, xOffset: 0, yPos: 80 }; }
-    else if (category === "ボトムス") { setting = { maxW: 280, maxH: 450, xOffset: 0, yPos: 330 }; }
+    else if (category === "ボトムス") { setting = { maxW: 320, maxH: 450, xOffset: 0, yPos: 330 }; }
     else if (category === "ワンピース") { setting = { maxW: 320, maxH: 600, xOffset: 0, yPos: 100 }; }
     else if (category === "羽織り") { setting = { maxW: 330, maxH: 450, xOffset: 120, yPos: 40 }; }
     else if (category === "アウター") { setting = { maxW: 420, maxH: 600, xOffset: -150, yPos: 20 }; }
-    else if (category === "シューズ") { setting = { maxW: 160, maxH: 600, xOffset: 0, yPos: 950 }; }
+    else if (category === "シューズ") { setting = { maxW: 200, maxH: 600, xOffset: 0, yPos: 950 }; }
     else if (category === "バッグ") { setting = { maxW: 240, maxH: 240, xOffset: -300, yPos: 350 }; }
     else { setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 }; }
     
@@ -518,6 +522,14 @@
     return { width: img.width * ratio, height: img.height * ratio };
   }
 
+  // --- モーダル制御系 (編集・登録) ---
+  function openRegisterModal() {
+    document.getElementById('register-modal').style.display = 'flex';
+  }
+  function closeRegisterModal() {
+    document.getElementById('register-modal').style.display = 'none';
+  }
+  
   function openEditModal(item) {
     document.getElementById('edit-modal').style.display = 'flex';
     document.getElementById('edit-id').value = item.id;
@@ -529,7 +541,8 @@
     const seasons = (item.seasons || "").split(",");
     document.querySelectorAll('input[name="edit-season"]').forEach(cb => { cb.checked = seasons.includes(cb.value); });
   }
-  function closeModal() { document.getElementById('edit-modal').style.display = 'none'; }
+  function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
+  
   function updateBtn() {
     const checked = document.querySelectorAll('.grid input:checked');
     const btn = document.getElementById('generateBtn');
