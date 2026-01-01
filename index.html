@@ -6,30 +6,26 @@
   <title>My Real Closet</title>
   <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
   <style>
-    body { font-family: "Helvetica Neue", Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f5f7fa; color: #333; padding-bottom: 80px; /* FABのために下部余白 */ }
+    body { font-family: "Helvetica Neue", Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f5f7fa; color: #333; padding-bottom: 80px; }
     .card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
     h2 { margin-top: 0; color: #444; text-align: center; }
     h3 { color: #ff6b6b; margin-bottom: 10px; }
     label { font-weight: bold; font-size: 0.9em; color: #666; display: block; margin-top: 15px; }
     input, select, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
     
-    /* ボタン類 */
     button#saveBtn, button#generateBtn { background-color: #ff6b6b; color: white; border: none; font-weight: bold; margin-top: 25px; cursor: pointer; }
     button:disabled { background-color: #ccc; cursor: not-allowed; }
     button.sub-btn { background:#555; color:white; font-size:0.9em; padding:8px; border:none; margin-bottom:20px; cursor:pointer; }
 
-    /* 季節チェックボックス */
     .season-group { display: flex; gap: 10px; margin-top: 5px; }
     .season-group label { margin: 0; padding: 10px; background: #eee; border-radius: 5px; font-weight: normal; cursor: pointer; text-align: center; flex: 1; }
     .season-group input { display: none; }
     .season-group input:checked + span { color: #ff6b6b; font-weight: bold; }
     .season-group label:has(input:checked) { background: #ffebeb; border: 1px solid #ff6b6b; }
 
-    /* アコーディオン */
     details { margin-bottom: 12px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: white; }
     summary { font-weight: bold; cursor: pointer; padding: 12px 15px; background: #f9f9f9; display: flex; justify-content: space-between; }
     
-    /* 5列グリッド */
     .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 8px; }
     .grid-item { position: relative; }
     .grid img { width: 100%; aspect-ratio: 1/1; object-fit: contain; border-radius: 4px; border: 1px solid #eee; background: #fafafa; }
@@ -37,14 +33,12 @@
     .grid input:checked + img { border-color: #ff6b6b; background: #ffebeb; }
     .grid input:checked + img::after { content: "✔"; position: absolute; top: 2px; right: 2px; background: #ff6b6b; color: white; border-radius: 50%; width: 16px; height: 16px; text-align: center; line-height: 16px; font-size: 10px; }
     
-    /* 編集ボタン(ペン) */
     .edit-btn {
       position: absolute; bottom: 2px; right: 2px; z-index: 3;
       background: rgba(255, 255, 255, 0.9); border: 1px solid #ddd; border-radius: 50%;
       width: 20px; height: 20px; text-align: center; line-height: 18px; font-size: 12px; cursor: pointer; color: #555;
     }
 
-    /* モーダル共通 (登録・編集) */
     .modal-overlay {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
@@ -54,19 +48,27 @@
     }
     .close-modal { position: absolute; top: 15px; right: 20px; font-size: 24px; cursor: pointer; color: #999; }
     
-    /* コーデ提案エリア */
     #proposal-area { margin-top: 30px; border-top: 2px dashed #ddd; padding-top: 25px; }
     #proposal-results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .proposal-card { border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: #fff; }
+    .proposal-card { border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
     canvas.outfit-canvas { width: 100%; height: auto; display: block; background-color: #fff; }
-    .proposal-content { display: none; }
+    
+    /* ▼▼▼ 追加: アイテムリストの文字スタイル ▼▼▼ */
+    .item-list-text {
+      padding: 10px;
+      font-size: 0.75em;
+      color: #555;
+      background: #f9f9f9;
+      border-top: 1px solid #eee;
+      line-height: 1.4;
+    }
+    .item-list-text ul { margin: 0; padding-left: 15px; }
+    .item-list-text li { margin-bottom: 2px; }
 
-    /* ローディング */
     #gen-loading { text-align: center; padding: 40px; display: none; }
     .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid rgba(255,107,107,.3); border-radius: 50%; border-top-color: #ff6b6b; animation: spin 1s infinite; margin-bottom: 10px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ★フローティングアクションボタン(FAB) */
     .fab-btn {
       position: fixed; bottom: 20px; right: 20px;
       width: 60px; height: 60px;
@@ -494,18 +496,35 @@
     const drawOrder = ["アウター", "羽織り", "トップス", "ワンピース", "ボトムス", "バッグ", "シューズ", "アクセサリー"];
     drawOrder.forEach(cat => { if (itemsMap[cat]) drawItemOnCanvas(ctx, itemsMap[cat], cat); });
     
+    // 画像を追加
     card.appendChild(canvas); 
+    
+    // ★追加: 使ったアイテムのリストを文字で表示
+    const textDiv = document.createElement('div');
+    textDiv.className = 'item-list-text';
+    const ul = document.createElement('ul');
+    proposal.outfitItems.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = `[${item.mainCategory}] ${item.itemName}`;
+      ul.appendChild(li);
+    });
+    textDiv.appendChild(ul);
+    card.appendChild(textDiv);
+
     container.appendChild(card);
   }
 
   function drawItemOnCanvas(ctx, img, category) {
     const cw = 800; let setting = {};
     if (category === "トップス") { setting = { maxW: 360, maxH: 450, xOffset: 0, yPos: 80 }; }
-    else if (category === "ボトムス") { setting = { maxW: 300, maxH: 470, xOffset: 0, yPos: 330 }; }
-    else if (category === "ワンピース") { setting = { maxW: 300, maxH: 600, xOffset: 0, yPos: 100 }; }
+    else if (category === "ボトムス") { setting = { maxW: 280, maxH: 450, xOffset: 0, yPos: 330 }; }
+    else if (category === "ワンピース") { setting = { maxW: 320, maxH: 600, xOffset: 0, yPos: 100 }; }
     else if (category === "羽織り") { setting = { maxW: 330, maxH: 450, xOffset: 120, yPos: 40 }; }
-    else if (category === "アウター") { setting = { maxW: 420, maxH: 800, xOffset: -150, yPos: 20 }; }
-    else if (category === "シューズ") { setting = { maxW: 200, maxH: 800, xOffset: 0, yPos: 950 }; }
+    else if (category === "アウター") { setting = { maxW: 420, maxH: 600, xOffset: -150, yPos: 20 }; }
+    else if (category === "シューズ") { 
+      // ★修正箇所: 横幅制限を280pxに緩めました（幅広ブーツ対応）
+      setting = { maxW: 280, maxH: 600, xOffset: 0, yPos: 950 }; 
+    }
     else if (category === "バッグ") { setting = { maxW: 240, maxH: 240, xOffset: -300, yPos: 350 }; }
     else { setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 }; }
     
