@@ -53,7 +53,6 @@
     .proposal-card { border: 1px solid #eee; border-radius: 8px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
     canvas.outfit-canvas { width: 100%; height: auto; display: block; background-color: #fff; }
     
-    /* ▼▼▼ 追加: アイテムリストの文字スタイル ▼▼▼ */
     .item-list-text {
       padding: 10px;
       font-size: 0.75em;
@@ -470,15 +469,6 @@
     btn.disabled = true; loading.style.display = "block"; resultsDiv.innerHTML = ""; loading.scrollIntoView({ behavior: "smooth" });
     try {
       const result = await callGasApi('generate', { selectedItems, style: selectedStyle, season: selectedSeason });
-      
-      // ★デバッグログ出力
-      if (result.debug) {
-        console.group("🤖 AI生成デバッグログ");
-        console.log("1. AIからの生テキスト:\n", result.debug.rawAiResponse);
-        console.log("2. パース後のデータ:\n", result.debug.parsedPlans);
-        console.groupEnd();
-      }
-
       loading.style.display = "none"; btn.disabled = false;
       if (result.error) { alert("エラー: " + result.error); } else {
         if(!result.proposals || result.proposals.length === 0) resultsDiv.innerHTML = "<p>提案なし</p>";
@@ -515,7 +505,6 @@
     
     card.appendChild(canvas); 
     
-    // アイテム名リスト表示
     const textDiv = document.createElement('div');
     textDiv.className = 'item-list-text';
     const ul = document.createElement('ul');
@@ -538,8 +527,8 @@
     else if (category === "羽織り") { setting = { maxW: 330, maxH: 450, xOffset: 120, yPos: 40 }; }
     else if (category === "アウター") { setting = { maxW: 420, maxH: 600, xOffset: -150, yPos: 20 }; }
     else if (category === "シューズ") { 
-      // ★200に戻っていたので再度280に修正（デバッグ対応）
-      setting = { maxW: 200, maxH: 500, xOffset: 0, yPos: 950 }; 
+      // シューズの幅を200pxに設定 (ユーザー指定)
+      setting = { maxW: 200, maxH: 600, xOffset: 0, yPos: 950 }; 
     }
     else if (category === "バッグ") { setting = { maxW: 240, maxH: 240, xOffset: -300, yPos: 350 }; }
     else { setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 }; }
