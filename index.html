@@ -91,6 +91,14 @@
     <h3>✨ コーデ提案</h3>
     <p id="guide-msg" style="font-size:0.9em; color:#666;">使いたい服を選択してください</p>
     
+    <label style="margin-top:0;">季節設定</label>
+    <select id="seasonSelect" style="margin-bottom:10px;">
+      <option value="春">春 (Spring)</option>
+      <option value="夏">夏 (Summer)</option>
+      <option value="秋">秋 (Autumn)</option>
+      <option value="冬" selected>冬 (Winter)</option>
+    </select>
+
     <label style="margin-top:0;">提案スタイル</label>
     <select id="styleSelect" style="margin-bottom:15px;">
       <option value="casual">カジュアル (元気・ラフ)</option>
@@ -352,7 +360,6 @@
         await localforage.setItem(CACHE_KEY, globalItems);
         renderCloset(globalItems);
         
-        // リセット＆モーダル閉じる
         document.getElementById('fileInput').value = ""; 
         document.getElementById('preview').style.display = 'none';
         document.getElementById('itemName').value = ""; 
@@ -458,10 +465,20 @@
     const loading = document.getElementById('gen-loading'); 
     const resultsDiv = document.getElementById('proposal-results');
     const selectedStyle = document.getElementById('styleSelect').value;
+    const selectedSeason = document.getElementById('seasonSelect').value;
 
     btn.disabled = true; loading.style.display = "block"; resultsDiv.innerHTML = ""; loading.scrollIntoView({ behavior: "smooth" });
     try {
-      const result = await callGasApi('generate', { selectedItems, style: selectedStyle });
+      const result = await callGasApi('generate', { selectedItems, style: selectedStyle, season: selectedSeason });
+      
+      // ★デバッグログ出力
+      if (result.debug) {
+        console.group("🤖 AI生成デバッグログ");
+        console.log("1. AIからの生テキスト:\n", result.debug.rawAiResponse);
+        console.log("2. パース後のデータ:\n", result.debug.parsedPlans);
+        console.groupEnd();
+      }
+
       loading.style.display = "none"; btn.disabled = false;
       if (result.error) { alert("エラー: " + result.error); } else {
         if(!result.proposals || result.proposals.length === 0) resultsDiv.innerHTML = "<p>提案なし</p>";
@@ -496,10 +513,9 @@
     const drawOrder = ["アウター", "羽織り", "トップス", "ワンピース", "ボトムス", "バッグ", "シューズ", "アクセサリー"];
     drawOrder.forEach(cat => { if (itemsMap[cat]) drawItemOnCanvas(ctx, itemsMap[cat], cat); });
     
-    // 画像を追加
     card.appendChild(canvas); 
     
-    // ★追加: 使ったアイテムのリストを文字で表示
+    // アイテム名リスト表示
     const textDiv = document.createElement('div');
     textDiv.className = 'item-list-text';
     const ul = document.createElement('ul');
@@ -521,7 +537,10 @@
     else if (category === "ワンピース") { setting = { maxW: 320, maxH: 600, xOffset: 0, yPos: 100 }; }
     else if (category === "羽織り") { setting = { maxW: 330, maxH: 450, xOffset: 120, yPos: 40 }; }
     else if (category === "アウター") { setting = { maxW: 420, maxH: 600, xOffset: -150, yPos: 20 }; }
-    else if (category === "シューズ") { setting = { maxW: 200, maxH: 500, xOffset: 0, yPos: 950 }; }
+    else if (category === "シューズ") { 
+      // ★200に戻っていたので再度280に修正（デバッグ対応）
+      setting = { maxW: 200, maxH: 500, xOffset: 0, yPos: 950 }; 
+    }
     else if (category === "バッグ") { setting = { maxW: 240, maxH: 240, xOffset: -300, yPos: 350 }; }
     else { setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 }; }
     
@@ -538,7 +557,6 @@
     return { width: img.width * ratio, height: img.height * ratio };
   }
 
-  // --- モーダル制御系 (編集・登録) ---
   function openRegisterModal() {
     document.getElementById('register-modal').style.display = 'flex';
   }
