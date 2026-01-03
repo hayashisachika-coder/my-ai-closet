@@ -54,12 +54,7 @@
     canvas.outfit-canvas { width: 100%; height: auto; display: block; background-color: #fff; }
     
     .item-list-text {
-      padding: 10px;
-      font-size: 0.75em;
-      color: #555;
-      background: #f9f9f9;
-      border-top: 1px solid #eee;
-      line-height: 1.4;
+      padding: 10px; font-size: 0.75em; color: #555; background: #f9f9f9; border-top: 1px solid #eee; line-height: 1.4;
     }
     .item-list-text ul { margin: 0; padding-left: 15px; }
     .item-list-text li { margin-bottom: 2px; }
@@ -69,14 +64,19 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .fab-btn {
-      position: fixed; bottom: 20px; right: 20px;
-      width: 60px; height: 60px;
-      background-color: #ff6b6b; color: white;
-      border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      font-size: 30px; border: none; cursor: pointer; z-index: 900;
-      display: flex; align-items: center; justify-content: center;
+      position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; background-color: #ff6b6b; color: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 30px; border: none; cursor: pointer; z-index: 900; display: flex; align-items: center; justify-content: center;
     }
     .fab-btn:active { transform: scale(0.95); }
+
+    /* ★追加: 重ね着オプションのスタイル */
+    .layering-option {
+      display: none; /* 初期は非表示 */
+      margin-top: 10px; padding: 10px;
+      background-color: #e3f2fd; border: 1px solid #90caf9;
+      border-radius: 8px;
+    }
+    .layering-option label { margin-top: 0; display: flex; align-items: center; cursor: pointer; color: #1565c0; }
+    .layering-option input { width: auto; margin-right: 10px; margin-top: 0; }
   </style>
 </head>
 <body>
@@ -124,7 +124,7 @@
       <div id="ai-loading" style="display:none; color:#ff6b6b; font-weight:bold;">🤖 画像解析中...</div>
     </div>
     <label>大カテゴリ</label>
-    <select id="mainCat" onchange="updateSubCatOptions('subCat', this.value)">
+    <select id="mainCat" onchange="handleCategoryChange('mainCat', 'subCat', 'reg-layering')">
       <option value="">選択してください</option>
       <option value="トップス">トップス</option>
       <option value="ボトムス">ボトムス</option>
@@ -142,12 +142,20 @@
     <label>特徴・色</label>
     <input type="text" id="features" placeholder="自動入力">
     <label>季節感</label>
-    <div class="season-group">
-      <label><input type="checkbox" name="season" value="春"> <span>春</span></label>
-      <label><input type="checkbox" name="season" value="夏"> <span>夏</span></label>
-      <label><input type="checkbox" name="season" value="秋"> <span>秋</span></label>
-      <label><input type="checkbox" name="season" value="冬"> <span>冬</span></label>
+    <div class="season-group" id="reg-season-group">
+      <label><input type="checkbox" name="season" value="春" onchange="toggleLayeringOption('mainCat', 'reg-season-group', 'reg-layering')"> <span>春</span></label>
+      <label><input type="checkbox" name="season" value="夏" onchange="toggleLayeringOption('mainCat', 'reg-season-group', 'reg-layering')"> <span>夏</span></label>
+      <label><input type="checkbox" name="season" value="秋" onchange="toggleLayeringOption('mainCat', 'reg-season-group', 'reg-layering')"> <span>秋</span></label>
+      <label><input type="checkbox" name="season" value="冬" onchange="toggleLayeringOption('mainCat', 'reg-season-group', 'reg-layering')"> <span>冬</span></label>
     </div>
+
+    <div id="reg-layering" class="layering-option">
+      <label>
+        <input type="checkbox" id="reg-isLayeringNeeded"> 
+        🥶 薄手のため重ね着を必須にする
+      </label>
+    </div>
+
     <button id="saveBtn" onclick="uploadData()">保存する</button>
   </div>
 </div>
@@ -162,7 +170,7 @@
     <input type="hidden" id="edit-id">
     
     <label>大カテゴリ</label>
-    <select id="edit-mainCat" onchange="updateSubCatOptions('edit-subCat', this.value)">
+    <select id="edit-mainCat" onchange="handleCategoryChange('edit-mainCat', 'edit-subCat', 'edit-layering', 'edit-season-group')">
       <option value="トップス">トップス</option>
       <option value="ボトムス">ボトムス</option>
       <option value="ワンピース">ワンピース</option>
@@ -181,11 +189,18 @@
     <label>特徴</label>
     <input type="text" id="edit-features">
     <label>季節感</label>
-    <div class="season-group">
-      <label><input type="checkbox" name="edit-season" value="春"> <span>春</span></label>
-      <label><input type="checkbox" name="edit-season" value="夏"> <span>夏</span></label>
-      <label><input type="checkbox" name="edit-season" value="秋"> <span>秋</span></label>
-      <label><input type="checkbox" name="edit-season" value="冬"> <span>冬</span></label>
+    <div class="season-group" id="edit-season-group">
+      <label><input type="checkbox" name="edit-season" value="春" onchange="toggleLayeringOption('edit-mainCat', 'edit-season-group', 'edit-layering')"> <span>春</span></label>
+      <label><input type="checkbox" name="edit-season" value="夏" onchange="toggleLayeringOption('edit-mainCat', 'edit-season-group', 'edit-layering')"> <span>夏</span></label>
+      <label><input type="checkbox" name="edit-season" value="秋" onchange="toggleLayeringOption('edit-mainCat', 'edit-season-group', 'edit-layering')"> <span>秋</span></label>
+      <label><input type="checkbox" name="edit-season" value="冬" onchange="toggleLayeringOption('edit-mainCat', 'edit-season-group', 'edit-layering')"> <span>冬</span></label>
+    </div>
+
+    <div id="edit-layering" class="layering-option">
+      <label>
+        <input type="checkbox" id="edit-isLayeringNeeded"> 
+        🥶 薄手のため重ね着を必須にする
+      </label>
     </div>
 
     <div style="display:flex; gap:10px; margin-top:20px;">
@@ -196,10 +211,8 @@
 </div>
 
 <script>
-  // ★GASのURLをここに貼り付けてください
   const GAS_API_URL = "https://script.google.com/macros/s/AKfycbwkjflFsRpSsGiXj9au78QfhVcDZryVVKeHuuLKA4-jByi4_pcmESf1X51Oj6PiLWGjFw/exec";
 
-  // --- 定義系 ---
   const subCategoryData = {
     "トップス": ["Tシャツ/カットソー", "シャツ/ブラウス", "ニット/セーター", "スウェット/パーカー", "カーディガン", "ベスト", "キャミソール/タンクトップ", "その他トップス"],
     "ボトムス": ["デニム", "パンツ", "スカート", "ショートパンツ", "その他ボトムス"],
@@ -255,6 +268,16 @@
     return await response.json();
   }
 
+  // ★修正: カテゴリ変更時に重ね着オプションの表示切替も呼ぶ
+  function handleCategoryChange(catId, subCatId, layeringId) {
+    const catVal = document.getElementById(catId).value;
+    updateSubCatOptions(subCatId, catVal);
+    
+    // 季節グループIDを特定 (登録か編集かで分岐)
+    const seasonGroupId = (catId === 'mainCat') ? 'reg-season-group' : 'edit-season-group';
+    toggleLayeringOption(catId, seasonGroupId, layeringId);
+  }
+
   function updateSubCatOptions(targetId, mainVal, selectedSub = null) {
     const subSelect = document.getElementById(targetId);
     subSelect.innerHTML = "";
@@ -274,6 +297,26 @@
         opt.value = selectedSub; opt.textContent = selectedSub; opt.selected = true;
         subSelect.appendChild(opt);
       }
+    }
+  }
+
+  // ★追加: 重ね着オプションの表示/非表示ロジック
+  function toggleLayeringOption(catId, seasonGroupId, layeringId) {
+    const mainCat = document.getElementById(catId).value;
+    const layeringDiv = document.getElementById(layeringId);
+    
+    // 季節「冬」がチェックされているか確認
+    const winterCheckbox = document.querySelector(`#${seasonGroupId} input[value="冬"]`);
+    const isWinterChecked = winterCheckbox ? winterCheckbox.checked : false;
+
+    // トップス かつ 冬 の場合のみ表示
+    if (mainCat === 'トップス' && isWinterChecked) {
+      layeringDiv.style.display = 'block';
+    } else {
+      layeringDiv.style.display = 'none';
+      // 非表示時はチェックを外しておく
+      const checkbox = layeringDiv.querySelector('input[type="checkbox"]');
+      if (checkbox) checkbox.checked = false;
     }
   }
 
@@ -332,6 +375,8 @@
             document.getElementById('features').value = (result.color || "") + " " + (result.features || "");
             const seasons = result.seasons || [];
             document.querySelectorAll('input[name="season"]').forEach(cb => { cb.checked = seasons.includes(cb.value); });
+            // カテゴリや季節が自動セットされたので、重ね着OPの表示更新も呼ぶ
+            handleCategoryChange('mainCat', 'subCat', 'reg-layering');
           }
         } catch (err) { loading.style.display = 'none'; alert("通信エラー: " + err); }
       };
@@ -349,7 +394,9 @@
       subCategory: document.getElementById('subCat').value,
       itemName: document.getElementById('itemName').value,
       features: document.getElementById('features').value,
-      seasons: Array.from(document.querySelectorAll('input[name="season"]:checked')).map(e => e.value)
+      seasons: Array.from(document.querySelectorAll('input[name="season"]:checked')).map(e => e.value),
+      // ★追加: 重ね着フラグ送信
+      isLayeringNeeded: document.getElementById('reg-isLayeringNeeded').checked
     };
     try {
       const result = await callGasApi('upload', data);
@@ -364,6 +411,8 @@
         document.getElementById('itemName').value = ""; 
         document.getElementById('features').value = "";
         document.querySelectorAll('input[name="season"]').forEach(cb => cb.checked = false);
+        document.getElementById('reg-isLayeringNeeded').checked = false;
+        document.getElementById('reg-layering').style.display = 'none';
         fileData = null;
         closeRegisterModal(); 
       } else { alert("エラー: " + result.message); }
@@ -394,7 +443,9 @@
       subCategory: document.getElementById('edit-subCat').value,
       itemName: document.getElementById('edit-itemName').value,
       features: document.getElementById('edit-features').value,
-      seasons: Array.from(document.querySelectorAll('input[name="edit-season"]:checked')).map(e => e.value)
+      seasons: Array.from(document.querySelectorAll('input[name="edit-season"]:checked')).map(e => e.value),
+      // ★追加: 重ね着フラグ送信
+      isLayeringNeeded: document.getElementById('edit-isLayeringNeeded').checked
     };
     closeEditModal();
     try {
@@ -527,8 +578,7 @@
     else if (category === "羽織り") { setting = { maxW: 330, maxH: 450, xOffset: 120, yPos: 40 }; }
     else if (category === "アウター") { setting = { maxW: 420, maxH: 600, xOffset: -150, yPos: 20 }; }
     else if (category === "シューズ") { 
-      // シューズの幅を200pxに設定 (ユーザー指定)
-      setting = { maxW: 200, maxH: 600, xOffset: 0, yPos: 950 }; 
+      setting = { maxW: 200, maxH: 500, xOffset: 0, yPos: 950 }; 
     }
     else if (category === "バッグ") { setting = { maxW: 240, maxH: 240, xOffset: -300, yPos: 350 }; }
     else { setting = { maxW: 150, maxH: 150, xOffset: 250, yPos: 150 }; }
@@ -563,6 +613,16 @@
     document.getElementById('edit-features').value = item.features || "";
     const seasons = (item.seasons || "").split(",");
     document.querySelectorAll('input[name="edit-season"]').forEach(cb => { cb.checked = seasons.includes(cb.value); });
+    
+    // ★追加: 編集時も重ね着フラグを反映
+    const layeringCheckbox = document.getElementById('edit-isLayeringNeeded');
+    if (item.isLayeringNeeded === true) {
+      layeringCheckbox.checked = true;
+    } else {
+      layeringCheckbox.checked = false;
+    }
+    // オプションの表示制御
+    toggleLayeringOption('edit-mainCat', 'edit-season-group', 'edit-layering');
   }
   function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; }
   
